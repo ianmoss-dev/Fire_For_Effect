@@ -109,6 +109,12 @@ if "savings_rate_pct" not in st.session_state: st.session_state.savings_rate_pct
 if "nest_egg_target" not in st.session_state: st.session_state.nest_egg_target = 0.0
 if "est_pension" not in st.session_state: st.session_state.est_pension = 0.0
 if "mc_success_rate" not in st.session_state: st.session_state.mc_success_rate = None
+if "sim_results" not in st.session_state: st.session_state.sim_results = None
+if "sim_savings_pct" not in st.session_state: st.session_state.sim_savings_pct = 0.0
+if "sim_current_age" not in st.session_state: st.session_state.sim_current_age = 0
+if "sim_age_at_retire" not in st.session_state: st.session_state.sim_age_at_retire = 0
+if "sim_target" not in st.session_state: st.session_state.sim_target = 0.0
+if "sim_data_source" not in st.session_state: st.session_state.sim_data_source = None
 if "tab3_take_home" not in st.session_state: st.session_state.tab3_take_home = 0.0
 if "tab3_fixed" not in st.session_state: st.session_state.tab3_fixed = 0.0
 if "tab3_invested" not in st.session_state: st.session_state.tab3_invested = 0.0
@@ -972,46 +978,61 @@ consistency, and discipline.
             st.session_state.monte_carlo_run = True
             with st.spinner("Running 1,000 trials..."):
                 hist_returns, data_source = scrape_and_prep_tsp_data()
-
-                if data_source == "Proxy":
-                    st.warning("⚠️ Live market data unavailable. Running on high-fidelity historical proxy data.")
-
                 sim_results = run_real_monte_carlo(
                     current_age, age_at_retire, current_tsp,
                     contrib_schedule, hist_returns,
                     pct_l / 100.0, mc_manual_alloc,
                     inflation_rate=inflation_rate, trials=1000
                 )
+                # Store everything needed to redraw the chart across reruns
+                st.session_state.sim_results = sim_results
+                st.session_state.sim_savings_pct = savings_pct
+                st.session_state.sim_current_age = current_age
+                st.session_state.sim_age_at_retire = age_at_retire
+                st.session_state.sim_target = total_nest_egg_needed
+                st.session_state.sim_data_source = data_source
+
+        # Render chart from session state — survives all reruns after button press
+        if st.session_state.get("sim_results") is not None:
+            sim_results       = st.session_state.sim_results
+            sim_savings_pct   = st.session_state.sim_savings_pct
+            sim_current_age   = st.session_state.sim_current_age
+            sim_age_at_retire = st.session_state.sim_age_at_retire
+            sim_target        = st.session_state.sim_target
+            sim_data_source   = st.session_state.sim_data_source
+
+            if sim_data_source == "Proxy":
+                st.warning("⚠️ Live market data unavailable. Running on high-fidelity historical proxy data.")
 
             fig, ax = plt.subplots(figsize=(12, 6), facecolor='#0e1117')
             ax.set_facecolor('#0e1117')
-            time_axis = np.linspace(current_age, age_at_retire, sim_results.shape[1])
+            time_axis = np.linspace(sim_current_age, sim_age_at_retire, sim_results.shape[1])
 
             p10 = np.percentile(sim_results, 10, axis=0)
             p50 = np.percentile(sim_results, 50, axis=0)
             p90 = np.percentile(sim_results, 90, axis=0)
-            success_rate = np.mean(sim_results[:, -1] >= total_nest_egg_needed) * 100
+            success_rate = np.mean(sim_results[:, -1] >= sim_target) * 100
             st.session_state.mc_success_rate = success_rate
 
-            # 20 paths sampled evenly across percentile distribution
+            # 20 paths sampled across 0th–90th percentile — excludes extreme outliers
             final_vals = sim_results[:, -1]
             sorted_idx = np.argsort(final_vals)
-            p90_cutoff = int(0.90 * len(sorted_idx)) - 1  # exclude top 10% from plotted paths
+            p90_cutoff = int(0.90 * len(sorted_idx)) - 1
             sample_idx = [sorted_idx[int(i * p90_cutoff / 19)] for i in range(20)]
 
             for k, idx in enumerate(sample_idx):
-                label = f'Based on {savings_pct*100:.1f}% military savings rate — Probability of Success: {success_rate:.1f}%' if k == 0 else ""
+                label = f'Based on {sim_savings_pct*100:.1f}% military savings rate — Probability of Success: {success_rate:.1f}%' if k == 0 else ""
                 ax.plot(time_axis, sim_results[idx], color='#b4b4c8', lw=0.9, alpha=0.35, label=label)
 
             ax.fill_between(time_axis, p10, p90, color='#00b4d8', alpha=0.15)
             ax.plot(time_axis, p90, color='#00b4d8', lw=1.2, linestyle='dashed',
-                    label=f'90th Percentile: ${p90[-1]:,.0f} at age {age_at_retire}')
+                    label=f'90th Percentile: ${p90[-1]:,.0f} at age {sim_age_at_retire}')
             ax.plot(time_axis, p50, color='#00b4d8', lw=2.5,
-                    label=f'Median: ${p50[-1]:,.0f} at age {age_at_retire}')
+                    label=f'Median: ${p50[-1]:,.0f} at age {sim_age_at_retire}')
             ax.plot(time_axis, p10, color='#00b4d8', lw=1, linestyle='dotted',
-                    label=f'10th Percentile: ${p10[-1]:,.0f} at age {age_at_retire}')
-            ax.axhline(y=total_nest_egg_needed, color='#ef476f', linestyle='--', lw=1.5,
-                       label=f'Target: ${total_nest_egg_needed:,.0f}')
+                    label=f'10th Percentile: ${p10[-1]:,.0f} at age {sim_age_at_retire}')
+            ax.axhline(y=sim_target, color='#ef476f', linestyle='--', lw=1.5,
+                       label=f'Target: ${sim_target:,.0f}')
 
             ax.set_ylabel('Portfolio Value ($)', fontsize=11, color='#fafafa')
             ax.set_xlabel('Age', fontsize=11, color='#fafafa')
