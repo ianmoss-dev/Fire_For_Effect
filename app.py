@@ -178,14 +178,42 @@ So I'm asking your permission to collect some anonymous usage data while you're 
 # ==========================================
 
 def generate_mock_tsp_data(months=360):
-    """Fallback high-fidelity proxy data if the TSP scraper gets blocked by firewalls."""
-    np.random.seed(42)
-    stats = {
-        'C': [0.105, 0.15], 'S': [0.110, 0.18], 'I': [0.075, 0.17], 
-        'F': [0.040, 0.05], 'G': [0.028, 0.01]
-    }
-    data = {fund: np.random.normal(s[0]/12, s[1]/np.sqrt(12), months) for fund, s in stats.items()}
-    return pd.DataFrame(data)
+    """High-fidelity proxy data using Cholesky decomposition for realistic market correlation."""
+    np.random.seed(42) # For reproducible fallback tests
+
+    # 1. Annual Means and Volatilities (based on historicals)
+    annual_means = np.array([0.105, 0.110, 0.075, 0.040, 0.028])
+    annual_vols = np.array([0.15, 0.18, 0.17, 0.05, 0.01])
+
+    # Convert to monthly
+    monthly_means = annual_means / 12
+    monthly_vols = annual_vols / np.sqrt(12)
+
+    # 2. Correlation Matrix (C, S, I, F, G)
+    corr_matrix = np.array([
+        [ 1.00,  0.85,  0.75,  0.05,  0.00], # C-Fund
+        [ 0.85,  1.00,  0.70,  0.05,  0.00], # S-Fund
+        [ 0.75,  0.70,  1.00,  0.05,  0.00], # I-Fund
+        [ 0.05,  0.05,  0.05,  1.00,  0.10], # F-Fund
+        [ 0.00,  0.00,  0.00,  0.10,  1.00]  # G-Fund
+    ])
+
+    # 3. Covariance Matrix
+    D = np.diag(monthly_vols)
+    cov_matrix = D @ corr_matrix @ D
+
+    # 4. Cholesky Decomposition (L matrix)
+    L = np.linalg.cholesky(cov_matrix)
+
+    # 5. Generate uncorrelated standard normal samples, then correlate them
+    Z = np.random.normal(0, 1, size=(5, months))
+    correlated_returns = monthly_means[:, np.newaxis] + (L @ Z)
+
+    # Return as DataFrame to match the TSP scraper output
+    df = pd.DataFrame(correlated_returns.T, columns=['C', 'S', 'I', 'F', 'G'])
+    df.index = pd.date_range(start='1990-01-01', periods=months, freq='ME')
+    
+    return df
 
 @st.cache_data(show_spinner=False, ttl=86400) 
 def scrape_and_prep_tsp_data():
@@ -241,15 +269,15 @@ def get_lifecycle_allocation(years_to_retire):
     else: return {'C': 0.0, 'S': 0.0, 'I': 0.0, 'F': 0.3, 'G': 0.7}
 
 def run_real_monte_carlo(current_age, retire_age, initial_bal, monthly_contrib,
-                         hist_returns, use_lc, manual_alloc, inflation_rate=0.025, trials=1000):
+                         hist_returns, l_fund_weight, manual_alloc, inflation_rate=0.025, trials=1000):
     """
-    monthly_contrib can be a scalar (fixed $) or a list/array of length `months`
-    (variable contributions based on promotion schedule).
+    Runs an optimized NumPy Monte Carlo simulation. 
+    Correctly blends manual TSP fund allocations with the dynamic L-Fund.
     """
-    months = (retire_age - current_age) * 12
+    months = int((retire_age - current_age) * 12)
     monthly_inflation = (1 + inflation_rate)**(1/12) - 1
 
-    # Normalise contribution schedule to an array
+    # Normalize contribution schedule
     if np.isscalar(monthly_contrib):
         contrib_schedule = np.full(months, monthly_contrib)
     else:
@@ -259,26 +287,44 @@ def run_real_monte_carlo(current_age, retire_age, initial_bal, monthly_contrib,
         else:
             contrib_schedule = contrib_schedule[:months]
 
-    results = []
-    for _ in range(trials):
+    # 1. Pre-calculate exact monthly allocations (Blending Manual + L-Fund)
+    monthly_allocs = []
+    funds = ['C', 'S', 'I', 'F', 'G']
+    for i in range(months):
+        alloc = manual_alloc.copy()
+        if l_fund_weight > 0:
+            years_left = (months - i) / 12
+            lc_alloc = get_lifecycle_allocation(years_left)
+            for f, w in lc_alloc.items():
+                alloc[f] = alloc.get(f, 0) + (l_fund_weight * w)
+        monthly_allocs.append([alloc.get(f, 0) for f in funds])
+        
+    # Convert to NumPy for vectorized dot product later
+    monthly_allocs_arr = np.array(monthly_allocs)
+
+    # 2. Extract historical returns to a pure NumPy array for speed
+    hist_returns_arr = hist_returns[funds].values 
+
+    # Pre-allocate the results array
+    results = np.zeros((trials, months + 1))
+    results[:, 0] = initial_bal
+
+    # 3. Run Trials
+    for t in range(trials):
+        # Fast random sampling of historical months
+        sample_indices = np.random.randint(0, len(hist_returns_arr), size=months)
+        sampled_returns = hist_returns_arr[sample_indices]
+        
         balance = initial_bal
-        path = [balance]
-        samples = hist_returns.sample(months, replace=True)
-
         for i in range(months):
-            if use_lc:
-                years_left = (months - i) / 12
-                alloc = get_lifecycle_allocation(years_left)
-            else:
-                alloc = manual_alloc
-
-            nom_ret = sum(samples.iloc[i][f] * alloc.get(f, 0) for f in alloc)
+            # Calculate nominal return using dot product of weights and sampled returns
+            nom_ret = np.dot(sampled_returns[i], monthly_allocs_arr[i])
             real_ret = (1 + nom_ret) / (1 + monthly_inflation) - 1
+            
             balance = (balance * (1 + real_ret)) + contrib_schedule[i]
-            path.append(balance)
+            results[t, i + 1] = balance
 
-        results.append(path)
-    return np.array(results)
+    return results
 
 # --- 2. DATA UTILITIES ---
 @st.cache_data
@@ -975,7 +1021,7 @@ consistency, and discipline.
                 sim_results = run_real_monte_carlo(
                     current_age, age_at_retire, current_tsp,
                     contrib_schedule, hist_returns,
-                    use_lc, mc_manual_alloc,
+                    pct_l / 100.0, mc_manual_alloc,
                     inflation_rate=inflation_rate, trials=1000
                 )
 
@@ -1310,10 +1356,10 @@ with tab3:
 
         experiences   = st.number_input("Experiences (Travel, Events)",        min_value=0.0, value=0.0, step=50.0)
         convenience   = st.number_input("Convenience (Delivery, Time-savers)", min_value=0.0, value=0.0, step=50.0)
-        hobbies       = st.number_input("Hobbies (Gear, Gym, Gaming)",          min_value=0.0, value=0.0, step=50.0)
-        personal      = st.number_input("Personal (Clothes, Grooming)",         min_value=0.0, value=0.0, step=50.0)
-        entertainment = st.number_input("Entertainment (Dining Out, Bars)",     min_value=0.0, value=0.0, step=50.0)
-        generosity    = st.number_input("Generosity (Gifts, Donations)",        min_value=0.0, value=0.0, step=50.0)
+        hobbies       = st.number_input("Hobbies (Gear, Gym, Gaming)",         min_value=0.0, value=0.0, step=50.0)
+        personal      = st.number_input("Personal (Clothes, Grooming)",        min_value=0.0, value=0.0, step=50.0)
+        entertainment = st.number_input("Entertainment (Dining Out, Bars)",    min_value=0.0, value=0.0, step=50.0)
+        generosity    = st.number_input("Generosity (Gifts, Donations)",       min_value=0.0, value=0.0, step=50.0)
 
         fun_total = experiences + convenience + hobbies + personal + entertainment + generosity
         fun_pct   = (fun_total / take_home * 100) if take_home > 0 else 0
