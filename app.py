@@ -145,7 +145,7 @@ So I'm asking your permission to collect some anonymous usage data while you're 
 - What tabs you visited and how far you got
 - Your duty station zip code (if you enter one)
 - Whether you're on a phone or computer
-- Whether you ran the Monte Carlo simulation, completed the financial quiz, or downloaded the PDF
+- Whether you ran the Luck & Timing Roulette simulation, completed the financial quiz, or downloaded the PDF
 - Whether anything broke while you were using it
 
 **What I do NOT collect:**
@@ -188,34 +188,39 @@ def generate_mock_tsp_data(months=360):
     return pd.DataFrame(data)
 
 @st.cache_data(show_spinner=False, ttl=86400)
+def _fetch_live_tsp_data():
+    """Fetches live TSP proxy data via yfinance. Only successful results are cached."""
+    import yfinance as yf
+
+    tickers = {'C': '^GSPC', 'S': '^RUT', 'I': 'EFA', 'F': 'AGG', 'G': '^IRX'}
+    frames = {}
+
+    for fund, ticker in tickers.items():
+        df = yf.download(ticker, start="2000-01-01", progress=False, auto_adjust=True)
+        if df.empty:
+            raise ValueError(f"No data returned for {ticker}")
+        # yfinance 0.2.x returns MultiIndex columns — flatten before accessing
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.droplevel(1)
+        monthly = df['Close'].resample('ME').last()
+        frames[fund] = monthly
+
+    combined = pd.DataFrame(frames).dropna()
+
+    # G-fund: ^IRX is an annualized yield %, convert to monthly return
+    combined['G'] = (1 + combined['G'] / 100) ** (1/12) - 1
+
+    # All others: price-based monthly returns
+    for fund in ['C', 'S', 'I', 'F']:
+        combined[fund] = combined[fund].pct_change()
+
+    return combined.dropna()
+
 def scrape_and_prep_tsp_data():
-    """Pulls real historical monthly returns via yfinance. Falls back to synthetic data if unavailable."""
+    """Returns (DataFrame, source_label). Only live data is cached — proxy fallback is never cached."""
     try:
-        import yfinance as yf
-
-        tickers = {'C': '^GSPC', 'S': '^RUT', 'I': 'EFA', 'F': 'AGG', 'G': '^IRX'}
-        frames = {}
-
-        for fund, ticker in tickers.items():
-            df = yf.download(ticker, start="2000-01-01", progress=False, auto_adjust=True)
-            if df.empty:
-                raise ValueError(f"No data returned for {ticker}")
-            monthly = df['Close'].resample('ME').last()
-            frames[fund] = monthly
-
-        combined = pd.DataFrame(frames).dropna()
-
-        # G-fund: ^IRX is an annualized yield %, convert to monthly return
-        combined['G'] = (1 + combined['G'] / 100) ** (1/12) - 1
-
-        # All others: price-based monthly returns
-        for fund in ['C', 'S', 'I', 'F']:
-            combined[fund] = combined[fund].pct_change()
-
-        combined = combined.dropna()
-        return combined, "Live"
-
-    except Exception as e:
+        return _fetch_live_tsp_data(), "Live"
+    except Exception:
         return generate_mock_tsp_data(), "Proxy"
 
 def get_lifecycle_allocation(years_to_retire):
@@ -224,24 +229,28 @@ def get_lifecycle_allocation(years_to_retire):
     elif years_to_retire > 0: return {'C': 0.20, 'S': 0.05, 'I': 0.05, 'F': 0.3, 'G': 0.4}
     else: return {'C': 0.0, 'S': 0.0, 'I': 0.0, 'F': 0.3, 'G': 0.7}
 
-def run_real_monte_carlo(current_age, retire_age, initial_bal, monthly_contrib,
-                         hist_returns, use_lc, manual_alloc, inflation_rate=0.025, trials=1000):
+def run_real_monte_carlo(current_age, retire_age, initial_bal,
+                         savings_pct, base_pay_schedule, civilian_monthly, mil_months,
+                         hist_returns, use_lc, manual_alloc,
+                         inflation_rate=0.025, trials=1000):
     """
-    monthly_contrib can be a scalar (fixed $) or a list/array of length `months`
-    (variable contributions based on promotion schedule).
+    Builds contribution schedule directly from savings_pct * income[i].
+    MC is always driven by the calculated percentage, never by solver dollar outputs.
     """
     months = (retire_age - current_age) * 12
-    monthly_inflation = (1 + inflation_rate)**(1/12) - 1
+    monthly_inflation = (1 + inflation_rate) ** (1/12) - 1
 
-    # Normalise contribution schedule to an array
-    if np.isscalar(monthly_contrib):
-        contrib_schedule = np.full(months, monthly_contrib)
-    else:
-        contrib_schedule = np.array(monthly_contrib)
-        if len(contrib_schedule) < months:
-            contrib_schedule = np.pad(contrib_schedule, (0, months - len(contrib_schedule)), 'edge')
-        else:
-            contrib_schedule = contrib_schedule[:months]
+    # Build income schedule: military phase then civilian phase
+    income_schedule = list(base_pay_schedule)
+    for _ in range(months - len(base_pay_schedule)):
+        income_schedule.append(civilian_monthly)
+    income_schedule = income_schedule[:months]
+
+    # Contributions are purely a function of the calculated savings rate
+    contrib_schedule = np.array([savings_pct * inc for inc in income_schedule])
+
+    # Pre-compute lc_remainder once — constant across all months and trials
+    lc_remainder = 1.0 - sum(manual_alloc.values())
 
     results = []
     for _ in range(trials):
@@ -253,18 +262,16 @@ def run_real_monte_carlo(current_age, retire_age, initial_bal, monthly_contrib,
             if use_lc:
                 years_left = (months - i) / 12
                 lc_alloc = get_lifecycle_allocation(years_left)
-                # Blend manual allocation with lifecycle allocation
-                alloc = {}
-                for f in ['C', 'S', 'I', 'F', 'G']:
-                    manual_weight = manual_alloc.get(f, 0)
-                    lc_weight = lc_alloc.get(f, 0) * (1 - sum(manual_alloc.values()))
-                    alloc[f] = manual_weight + lc_weight
+                alloc = {
+                    f: manual_alloc.get(f, 0) + lc_alloc.get(f, 0) * lc_remainder
+                    for f in ['C', 'S', 'I', 'F', 'G']
+                }
             else:
                 alloc = manual_alloc
 
             nom_ret = sum(samples.iloc[i][f] * alloc.get(f, 0) for f in alloc)
             real_ret = (1 + nom_ret) / (1 + monthly_inflation) - 1
-            balance = (balance * (1 + real_ret)) + contrib_schedule[i]
+            balance = balance * (1 + real_ret) + contrib_schedule[i]
             path.append(balance)
 
         results.append(path)
@@ -308,7 +315,7 @@ def get_military_pay(rank, tis, zip_code, has_dep):
 
 # --- PROMOTION TIMELINE & SAVINGS RATE HELPERS ---
 
-FUND_NOMINAL_RATES = {'C': 0.105, 'S': 0.110, 'I': 0.075, 'F': 0.040, 'G': 0.028}
+FUND_NOMINAL_RATES = {'C': 0.113, 'S': 0.094, 'I': 0.063, 'F': 0.054, 'G': 0.047}
 
 # Promotion timelines reflect when pay actually changes (~1 year after selection board).
 # Selection happens at typical primary zone TIS; pay follows ~12 months later.
@@ -813,7 +820,7 @@ with tab2:
         st.divider()
         st.subheader("🎯 Savings Rate Explorer")
         st.caption("Drag the slider to see how your savings rate affects your portfolio growth and the age at which you hit your goal. Uses your projected income schedule and expected real return.")
-        st.info("💡 **This is a what-if explorer.** Adjusting the slider here does not change your plan — it lets you explore tradeoffs between savings rate and retirement age before you commit. If a different rate or age looks better, go back and update your inputs above. The Monte Carlo simulation below always runs on your calculated savings rate.")
+        st.info("💡 **This is a what-if explorer.** Adjusting the slider here does not change your plan — it lets you explore tradeoffs between savings rate and retirement age before you commit. If a different rate or age looks better, go back and update your inputs above. The Luck & Timing Roulette simulation below always runs on your calculated savings rate.")
 
         explore_pct = st.slider(
             "Savings Rate (% of Base Pay)",
@@ -927,7 +934,7 @@ with tab2:
 
         # ── Monte Carlo ───────────────────────────────────────────────────────
         st.divider()
-        st.subheader("🎲 Monte Carlo Projection (1,000 Trials)")
+        st.subheader("🎲 Luck & Timing Roulette (1,000 Trials)")
         st.markdown("""
 You've done the work. You know what you make, what you need, what you need to save, and how you want 
 it invested. The graph above gives you the answer — if I do this, when will I meet my goal? It's 
@@ -964,8 +971,8 @@ consistency, and discipline.
 
                 sim_results = run_real_monte_carlo(
                     current_age, age_at_retire, current_tsp,
-                    contrib_schedule, hist_returns,
-                    use_lc, mc_manual_alloc,
+                    savings_pct, base_pay_schedule, civilian_monthly, mil_months,
+                    hist_returns, use_lc, mc_manual_alloc,
                     inflation_rate=inflation_rate, trials=1000
                 )
 
@@ -1016,7 +1023,7 @@ consistency, and discipline.
                 f"**A note on probability of success:** A result of 50–60% is intentional and appropriate. "
                 f"Targeting 80–90% means planning to survive the worst historical market sequences — "
                 f"which results in significant over-saving in most scenarios. With a military pension as a floor, "
-                f"a 50–60% Monte Carlo success rate reflects a realistic, balanced plan. "
+                f"a 50–60% success rate reflects a realistic, balanced plan. "
                 f"If your number is well below 50%, consider adjusting your savings rate or retirement age above."
             )
 
@@ -1055,7 +1062,7 @@ consistency, and discipline.
 
         Real returns shown in sliders use the Fisher equation: `(1 + nominal) / (1 + inflation) - 1`. They update live as you adjust the inflation slider.
 
-        **Monte Carlo**
+        **Luck & Timing Roulette**
 
         1,000 trials. Each trial randomly samples historical monthly returns from real market data (via yfinance proxies: ^GSPC, ^RUT, EFA, AGG, ^IRX) with replacement, and applies your projected contribution schedule. Returns are deflated by your selected inflation rate. Contributions are nominal dollars. Success = portfolio ≥ target nest egg at your stop-working age.
 
@@ -1699,7 +1706,7 @@ with tab7:
             row("Target Nest Egg:", f"${nest_egg:,.0f}")
             row("Required Savings Rate:", f"{savings_rate*100:.1f}% of Base Pay  <- Set this in MyPay" if savings_rate else "N/A")
             if success_prob is not None:
-                row("Monte Carlo Probability of Success:", f"{success_prob:.0f}%")
+                row("Luck & Timing Roulette — Probability of Success:", f"{success_prob:.0f}%")
             pdf.ln(2)
 
             section_header("MONTHLY BUDGET SUMMARY")
@@ -1775,7 +1782,7 @@ with tab7:
             st.metric("Target Nest Egg", f"${nest_egg:,.0f}")
             st.metric("Required Savings Rate", f"{savings_rate*100:.1f}% of Base Pay" if savings_rate else "—")
             if success_prob is not None:
-                st.metric("Monte Carlo Success", f"{success_prob:.0f}%")
+                st.metric("Luck & Timing Roulette", f"{success_prob:.0f}%")
         with col_c:
             st.markdown("**⚖️ Budget**")
             st.metric("Take-Home", f"${take_home:,.0f}")
