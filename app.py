@@ -229,53 +229,60 @@ def get_lifecycle_allocation(years_to_retire):
     elif years_to_retire > 0: return {'C': 0.20, 'S': 0.05, 'I': 0.05, 'F': 0.3, 'G': 0.4}
     else: return {'C': 0.0, 'S': 0.0, 'I': 0.0, 'F': 0.3, 'G': 0.7}
 
-def run_real_monte_carlo(current_age, retire_age, initial_bal,
-                         savings_pct, base_pay_schedule, civilian_monthly, mil_months,
-                         hist_returns, use_lc, manual_alloc,
-                         inflation_rate=0.025, trials=1000):
+def run_real_monte_carlo(current_age, retire_age, initial_bal, monthly_contrib,
+                         hist_returns, l_fund_weight, manual_alloc, inflation_rate=0.025, trials=1000):
     """
-    Builds contribution schedule directly from savings_pct * income[i].
-    MC is always driven by the calculated percentage, never by solver dollar outputs.
+    Runs an optimized NumPy simulation.
+    Correctly blends manual TSP fund allocations with the dynamic L-Fund.
     """
-    months = (retire_age - current_age) * 12
-    monthly_inflation = (1 + inflation_rate) ** (1/12) - 1
+    months = int((retire_age - current_age) * 12)
+    monthly_inflation = (1 + inflation_rate)**(1/12) - 1
 
-    # Build income schedule: military phase then civilian phase
-    income_schedule = list(base_pay_schedule)
-    for _ in range(months - len(base_pay_schedule)):
-        income_schedule.append(civilian_monthly)
-    income_schedule = income_schedule[:months]
+    # Normalize contribution schedule
+    if np.isscalar(monthly_contrib):
+        contrib_schedule = np.full(months, monthly_contrib)
+    else:
+        contrib_schedule = np.array(monthly_contrib)
+        if len(contrib_schedule) < months:
+            contrib_schedule = np.pad(contrib_schedule, (0, months - len(contrib_schedule)), 'edge')
+        else:
+            contrib_schedule = contrib_schedule[:months]
 
-    # Contributions are purely a function of the calculated savings rate
-    contrib_schedule = np.array([savings_pct * inc for inc in income_schedule])
+    # 1. Pre-calculate exact monthly allocations (Blending Manual + L-Fund)
+    monthly_allocs = []
+    funds = ['C', 'S', 'I', 'F', 'G']
+    for i in range(months):
+        alloc = manual_alloc.copy()
+        if l_fund_weight > 0:
+            years_left = (months - i) / 12
+            lc_alloc = get_lifecycle_allocation(years_left)
+            for f, w in lc_alloc.items():
+                alloc[f] = alloc.get(f, 0) + (l_fund_weight * w)
+        monthly_allocs.append([alloc.get(f, 0) for f in funds])
 
-    # Pre-compute lc_remainder once — constant across all months and trials
-    lc_remainder = 1.0 - sum(manual_alloc.values())
+    # Convert to NumPy for vectorized dot product
+    monthly_allocs_arr = np.array(monthly_allocs)
 
-    results = []
-    for _ in range(trials):
+    # 2. Extract historical returns to a pure NumPy array for speed
+    hist_returns_arr = hist_returns[funds].values
+
+    # Pre-allocate the results array
+    results = np.zeros((trials, months + 1))
+    results[:, 0] = initial_bal
+
+    # 3. Run trials
+    for t in range(trials):
+        sample_indices = np.random.randint(0, len(hist_returns_arr), size=months)
+        sampled_returns = hist_returns_arr[sample_indices]
+
         balance = initial_bal
-        path = [balance]
-        samples = hist_returns.sample(months, replace=True)
-
         for i in range(months):
-            if use_lc:
-                years_left = (months - i) / 12
-                lc_alloc = get_lifecycle_allocation(years_left)
-                alloc = {
-                    f: manual_alloc.get(f, 0) + lc_alloc.get(f, 0) * lc_remainder
-                    for f in ['C', 'S', 'I', 'F', 'G']
-                }
-            else:
-                alloc = manual_alloc
-
-            nom_ret = sum(samples.iloc[i][f] * alloc.get(f, 0) for f in alloc)
+            nom_ret = np.dot(sampled_returns[i], monthly_allocs_arr[i])
             real_ret = (1 + nom_ret) / (1 + monthly_inflation) - 1
-            balance = balance * (1 + real_ret) + contrib_schedule[i]
-            path.append(balance)
+            balance = (balance * (1 + real_ret)) + contrib_schedule[i]
+            results[t, i + 1] = balance
 
-        results.append(path)
-    return np.array(results)
+    return results
 
 # --- 2. DATA UTILITIES ---
 @st.cache_data
@@ -971,8 +978,8 @@ consistency, and discipline.
 
                 sim_results = run_real_monte_carlo(
                     current_age, age_at_retire, current_tsp,
-                    savings_pct, base_pay_schedule, civilian_monthly, mil_months,
-                    hist_returns, use_lc, mc_manual_alloc,
+                    contrib_schedule, hist_returns,
+                    pct_l / 100.0, mc_manual_alloc,
                     inflation_rate=inflation_rate, trials=1000
                 )
 
@@ -989,7 +996,8 @@ consistency, and discipline.
             # 20 paths sampled evenly across percentile distribution
             final_vals = sim_results[:, -1]
             sorted_idx = np.argsort(final_vals)
-            sample_idx = [sorted_idx[int(i * (1000 - 1) / 19)] for i in range(20)]
+            p90_cutoff = int(0.90 * len(sorted_idx)) - 1  # exclude top 10% from plotted paths
+            sample_idx = [sorted_idx[int(i * p90_cutoff / 19)] for i in range(20)]
 
             for k, idx in enumerate(sample_idx):
                 label = f'Based on {savings_pct*100:.1f}% military savings rate — Probability of Success: {success_rate:.1f}%' if k == 0 else ""
