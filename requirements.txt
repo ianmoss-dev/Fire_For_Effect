@@ -8,3 +8,5 @@ requests
 fpdf2
 gspread
 google-auth
+yfinance
+
