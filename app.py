@@ -178,60 +178,44 @@ So I'm asking your permission to collect some anonymous usage data while you're 
 # ==========================================
 
 def generate_mock_tsp_data(months=360):
-    """Fallback high-fidelity proxy data if the TSP scraper gets blocked by firewalls."""
-    np.random.seed(42)
+    """Fallback high-fidelity proxy data if yfinance is unavailable."""
+    rng = np.random.default_rng(42)
     stats = {
-        'C': [0.105, 0.15], 'S': [0.110, 0.18], 'I': [0.075, 0.17], 
+        'C': [0.105, 0.15], 'S': [0.110, 0.18], 'I': [0.075, 0.17],
         'F': [0.040, 0.05], 'G': [0.028, 0.01]
     }
-    data = {fund: np.random.normal(s[0]/12, s[1]/np.sqrt(12), months) for fund, s in stats.items()}
+    data = {fund: rng.normal(s[0]/12, s[1]/np.sqrt(12), months) for fund, s in stats.items()}
     return pd.DataFrame(data)
 
-@st.cache_data(show_spinner=False, ttl=86400) 
+@st.cache_data(show_spinner=False, ttl=86400)
 def scrape_and_prep_tsp_data():
-    """Attempts to scrape live TSP data. Fails gracefully to synthetic data if blocked."""
-    url = "https://www.tsp.gov/data/fund-price-history.csv"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/csv,application/csv",
-        "Referer": "https://www.tsp.gov/"
-    }
-
+    """Pulls real historical monthly returns via yfinance. Falls back to synthetic data if unavailable."""
     try:
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status() 
+        import yfinance as yf
 
-        if "<html" in response.text.lower() or "<!doctype html" in response.text.lower():
-            raise ValueError("Firewall blocked request.")
+        tickers = {'C': '^GSPC', 'S': '^RUT', 'I': 'EFA', 'F': 'AGG', 'G': '^IRX'}
+        frames = {}
 
-        raw_csv = io.StringIO(response.text)
-        df = pd.read_csv(raw_csv)
-        df.columns = df.columns.str.strip().str.lower()
-        df['date'] = pd.to_datetime(df['date'])
-        df = df.sort_values('date')
-        df.set_index('date', inplace=True)
+        for fund, ticker in tickers.items():
+            df = yf.download(ticker, start="2000-01-01", progress=False, auto_adjust=True)
+            if df.empty:
+                raise ValueError(f"No data returned for {ticker}")
+            monthly = df['Close'].resample('ME').last()
+            frames[fund] = monthly
 
-        core_funds_lower = []
-        for fund in ['c', 's', 'i', 'f', 'g']:
-            if fund in df.columns:
-                core_funds_lower.append(fund)
-            elif f"{fund} fund" in df.columns:
-                df.rename(columns={f"{fund} fund": fund}, inplace=True)
-                core_funds_lower.append(fund)
+        combined = pd.DataFrame(frames).dropna()
 
-        for col in core_funds_lower:
-            if df[col].dtype == object:
-                df[col] = df[col].astype(str).str.replace(',', '').astype(float)
+        # G-fund: ^IRX is an annualized yield %, convert to monthly return
+        combined['G'] = (1 + combined['G'] / 100) ** (1/12) - 1
 
-        monthly_prices = df[core_funds_lower].resample('ME').last()
-        monthly_returns = monthly_prices.pct_change()
-        monthly_returns.replace([np.inf, -np.inf], np.nan, inplace=True)
-        monthly_returns = monthly_returns.dropna()
-        monthly_returns.columns = ['C', 'S', 'I', 'F', 'G']
-        return monthly_returns, "Live"
+        # All others: price-based monthly returns
+        for fund in ['C', 'S', 'I', 'F']:
+            combined[fund] = combined[fund].pct_change()
+
+        combined = combined.dropna()
+        return combined, "Live"
 
     except Exception as e:
-        # Failsafe: return the high-fidelity synthetic data so the app NEVER crashes
         return generate_mock_tsp_data(), "Proxy"
 
 def get_lifecycle_allocation(years_to_retire):
@@ -268,7 +252,13 @@ def run_real_monte_carlo(current_age, retire_age, initial_bal, monthly_contrib,
         for i in range(months):
             if use_lc:
                 years_left = (months - i) / 12
-                alloc = get_lifecycle_allocation(years_left)
+                lc_alloc = get_lifecycle_allocation(years_left)
+                # Blend manual allocation with lifecycle allocation
+                alloc = {}
+                for f in ['C', 'S', 'I', 'F', 'G']:
+                    manual_weight = manual_alloc.get(f, 0)
+                    lc_weight = lc_alloc.get(f, 0) * (1 - sum(manual_alloc.values()))
+                    alloc[f] = manual_weight + lc_weight
             else:
                 alloc = manual_alloc
 
@@ -970,7 +960,7 @@ consistency, and discipline.
                 hist_returns, data_source = scrape_and_prep_tsp_data()
 
                 if data_source == "Proxy":
-                    st.warning("⚠️ TSP.gov blocked direct access. Running on high-fidelity historical proxy data.")
+                    st.warning("⚠️ Live market data unavailable. Running on high-fidelity historical proxy data.")
 
                 sim_results = run_real_monte_carlo(
                     current_age, age_at_retire, current_tsp,
@@ -1067,7 +1057,7 @@ consistency, and discipline.
 
         **Monte Carlo**
 
-        1,000 trials. Each trial randomly samples historical monthly TSP returns (with replacement) and applies your projected contribution schedule. Returns are deflated by your selected inflation rate. Contributions are nominal dollars. Success = portfolio ≥ target nest egg at your stop-working age.
+        1,000 trials. Each trial randomly samples historical monthly returns from real market data (via yfinance proxies: ^GSPC, ^RUT, EFA, AGG, ^IRX) with replacement, and applies your projected contribution schedule. Returns are deflated by your selected inflation rate. Contributions are nominal dollars. Success = portfolio ≥ target nest egg at your stop-working age.
 
         **Other:** Nest egg target uses the 4% safe withdrawal rule. Civilian salary is a major unknown — be conservative.
         """)
@@ -1459,7 +1449,7 @@ with tab4:
             if q13 == "Paying the full statement balance every single month": score += 1
             if q14 == "A standard checking account earning 0.01%": score += 1
             if q15 == "BAH at the E-5 with dependents rate for your school's zip code": score += 1
-            if q16 == "You must have 6 years of service AND commit to serving 4 MORE years": score += 1
+            if q16 == "You must have 6 years of service, commit to 4 MORE years, AND have 100% GI Bill eligibility — which academy and ROTC scholarship grads don't reach until year 8 or 7 respectively": score += 1
             if q17 == "You still need cash for closing costs, earnest money, and inspections": score += 1
             if q18 == "Get a VA disability rating of 10% or higher": score += 1
             if q19 == "Yes, as long as you live in one of the units for at least a year": score += 1
@@ -1513,7 +1503,7 @@ with tab5:
     with st.expander("2. The SCRA Debt Hack"):
         st.markdown("""
         * **The Mission:** The Servicemembers Civil Relief Act (SCRA) legally caps interest rates at 6% for any debt you acquired *before* entering active duty. 
-        * **Action Steps:** Identify pre-military credit cards, auto loans, or student loans. Call your lender’s specific SCRA department. Submit a copy of your active-duty orders. They are legally required to drop the rate and backdate the refund.
+        * **Action Steps:** Identify pre-military credit cards, auto loans, or student loans. Call your lender's specific SCRA department. Submit a copy of your active-duty orders. They are legally required to drop the rate and backdate the refund.
         """)
         st.checkbox("✅ I have verified my SCRA eligibility and contacted lenders", key="step_2")
 
