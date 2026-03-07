@@ -185,13 +185,16 @@ So I'm asking your permission to collect some anonymous usage data while you're 
 
 # ── Single source of truth for all fund return assumptions ───────────────────
 # Source: tspfolio.com, since-inception data through 3/5/2026
-# μ = nominal CAGR  |  σ = annualized standard deviation
+# geo_mean = target nominal CAGR (what the solver uses)
+# sigma     = annualized standard deviation
+# mu        = arithmetic mean for proxy sampling = geo_mean + sigma²/2
+#             Corrects for variance drag so proxy geometric return matches solver
 FUND_STATS = {
-    'C': {'mu': 0.107, 'sigma': 0.181},
-    'S': {'mu': 0.099, 'sigma': 0.202},
-    'I': {'mu': 0.068, 'sigma': 0.171},
-    'F': {'mu': 0.053, 'sigma': 0.043},
-    'G': {'mu': 0.047, 'sigma': 0.003},
+    'C': {'mu': 0.12338, 'sigma': 0.181, 'geo_mean': 0.107},
+    'S': {'mu': 0.11940, 'sigma': 0.202, 'geo_mean': 0.099},
+    'I': {'mu': 0.08262, 'sigma': 0.171, 'geo_mean': 0.068},
+    'F': {'mu': 0.05392, 'sigma': 0.043, 'geo_mean': 0.053},
+    'G': {'mu': 0.04700, 'sigma': 0.003, 'geo_mean': 0.047},
 }
 
 def generate_mock_tsp_data(months=360):
@@ -338,7 +341,7 @@ def get_military_pay(rank, tis, zip_code, has_dep):
 
 # --- PROMOTION TIMELINE & SAVINGS RATE HELPERS ---
 
-FUND_NOMINAL_RATES = {f: v['mu'] for f, v in FUND_STATS.items()}
+FUND_NOMINAL_RATES = {f: v['geo_mean'] for f, v in FUND_STATS.items()}
 
 # Promotion timelines reflect when pay actually changes (~1 year after selection board).
 # Selection happens at typical primary zone TIS; pay follows ~12 months later.
@@ -671,11 +674,11 @@ with tab2:
 
     # Real returns (Fisher equation): (1+nominal)/(1+inflation) - 1
     def real(nominal): return round(((1 + nominal) / (1 + inflation_rate) - 1) * 100, 1)
-    rc = real(FUND_STATS['C']['mu'])
-    rs = real(FUND_STATS['S']['mu'])
-    ri = real(FUND_STATS['I']['mu'])
-    rf = real(FUND_STATS['F']['mu'])
-    rg = real(FUND_STATS['G']['mu'])
+    rc = real(FUND_STATS['C']['geo_mean'])
+    rs = real(FUND_STATS['S']['geo_mean'])
+    ri = real(FUND_STATS['I']['geo_mean'])
+    rf = real(FUND_STATS['F']['geo_mean'])
+    rg = real(FUND_STATS['G']['geo_mean'])
 
     with alloc_col:
         fc1, fc2, fc3, fc4, fc5, fc6 = st.columns(6)
