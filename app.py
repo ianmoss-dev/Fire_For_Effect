@@ -386,14 +386,30 @@ def get_blended_nominal_return(alloc_dict, years_to_retire):
 
 def solve_savings_rate(target_nest_egg, current_tsp, base_pay_schedule,
                        civilian_monthly, mil_months, total_months,
-                       expected_real_rate, inflation_rate):
+                       alloc_dict, inflation_rate):
     """
-    Binary-searches for the constant % of income that, applied to the
-    projected income schedule, grows to target_nest_egg.
+    Binary-searches for the constant % of income that grows to target_nest_egg.
+    Uses a month-by-month gliding L-fund allocation — identical logic to the MC —
+    so the solver rate and MC median are always calibrated to the same return path.
     Returns (savings_pct_float, contribution_schedule_list).
     """
-    monthly_real = (1 + expected_real_rate) ** (1/12) - 1
     monthly_infl = (1 + inflation_rate) ** (1/12) - 1
+    l_weight     = alloc_dict.get('L', 0.0)
+    manual_alloc = {k: v for k, v in alloc_dict.items() if k != 'L'}
+    funds        = ['C', 'S', 'I', 'F', 'G']
+
+    # Pre-compute month-by-month nominal rates (mirrors MC allocation logic exactly)
+    monthly_rates = []
+    for m in range(total_months):
+        years_left = (total_months - m) / 12
+        alloc = manual_alloc.copy()
+        if l_weight > 0:
+            lc_alloc = get_lifecycle_allocation(years_left)
+            for f, w in lc_alloc.items():
+                alloc[f] = alloc.get(f, 0) + (l_weight * w)
+        nom = sum(alloc.get(f, 0) * FUND_NOMINAL_RATES.get(f, 0) for f in funds)
+        real = (1 + nom) ** (1/12) / (1 + monthly_infl) - 1
+        monthly_rates.append(real)
 
     # Build full income schedule (military phase + civilian phase)
     income_schedule = list(base_pay_schedule)
@@ -403,8 +419,7 @@ def solve_savings_rate(target_nest_egg, current_tsp, base_pay_schedule,
     def simulate(pct):
         balance = current_tsp
         for m in range(total_months):
-            contrib = pct * income_schedule[m]
-            balance = balance * (1 + monthly_real) + contrib
+            balance = balance * (1 + monthly_rates[m]) + pct * income_schedule[m]
         return balance
 
     # Binary search between 0% and 100%
@@ -581,30 +596,51 @@ with tab2:
         retire_system = st.radio("Retirement System", ["BRS (2.0%)", "Legacy / High-3 (2.5%)"], horizontal=True)
         multiplier = 0.02 if "BRS" in retire_system else 0.025
 
-        # Pull current rank/TIS from Tab 1 via import button
-        # Default to whatever Tab 1 has — fall back to E-5 only if Tab 1 hasn't been set
-        if "tab2_rank" not in st.session_state:
-            t1_rank = st.session_state.get("tab1_rank")
-            st.session_state["tab2_rank"] = CONFIG["ranks"].index(t1_rank) if t1_rank and t1_rank in CONFIG["ranks"] else 4
-        if "tab2_tis" not in st.session_state:
-            st.session_state["tab2_tis"] = float(st.session_state.get("tab1_tis", 4.0))
+        # Auto-sync rank/TIS from Tab 1 — always mirrors Tab 1 unless user overrides
+        t1_rank = st.session_state.get("tab1_rank")
+        t1_tis  = st.session_state.get("tab1_tis", 4.0)
+        default_rank_idx = CONFIG["ranks"].index(t1_rank) if t1_rank and t1_rank in CONFIG["ranks"] else 4
+        default_tis      = float(t1_tis)
 
-        if st.button("⬇️ Import Rank / TIS from Tab 1", key="import_tab1_rank"):
-            t1_rank = st.session_state.get("tab1_rank")
-            t1_tis  = st.session_state.get("tab1_tis", 4)
-            if t1_rank and t1_rank in CONFIG["ranks"]:
-                st.session_state["tab2_rank"] = CONFIG["ranks"].index(t1_rank)
-            st.session_state["tab2_tis"] = float(t1_tis)
-            st.rerun()
+        # Allow manual override via session state (set by import button)
+        if "tab2_rank_override" not in st.session_state:
+            st.session_state["tab2_rank_override"] = None
+        if "tab2_tis_override" not in st.session_state:
+            st.session_state["tab2_tis_override"] = None
 
-        start_rank = st.selectbox("Current Rank", CONFIG["ranks"],
-                                  index=st.session_state["tab2_rank"], key="tab2_rank_widget")
+        if st.button("⬇️ Lock Rank / TIS from Tab 1", key="import_tab1_rank",
+                     help="Locks current Tab 1 values — stops auto-syncing until you click again"):
+            st.session_state["tab2_rank_override"] = default_rank_idx
+            st.session_state["tab2_tis_override"]  = default_tis
+
+        rank_idx = st.session_state["tab2_rank_override"] if st.session_state["tab2_rank_override"] is not None else default_rank_idx
+        tis_val  = st.session_state["tab2_tis_override"]  if st.session_state["tab2_tis_override"]  is not None else default_tis
+
+        start_rank = st.selectbox("Current Rank", CONFIG["ranks"], index=rank_idx, key="tab2_rank_widget")
         start_tis  = st.number_input("Current Years of Service", min_value=0.0, max_value=40.0,
-                                     value=st.session_state["tab2_tis"], step=0.5)
+                                     value=tis_val, step=0.5)
         retire_rank = st.selectbox("Expected Rank at Retirement", CONFIG["ranks"], index=20)
         yrs_at_retire = st.slider("Total Years of Service at Retirement", 20, 40, 20)
         current_age   = st.slider("Current Age", 18, 60, 27)
         age_at_retire = st.slider("Age When You Stop Working Entirely", 38, 75, 60)
+
+        # ── Cross-community warning ───────────────────────────────────────────
+        def rank_community(r):
+            if r.startswith('O'): return 'officer'
+            if r.startswith('W'): return 'warrant'
+            return 'enlisted'
+
+        start_com  = rank_community(start_rank)
+        retire_com = rank_community(retire_rank)
+        if start_com != retire_com:
+            st.warning(
+                f"⚠️ **Cross-community transition detected** ({start_rank} → {retire_rank}). "
+                f"The savings rate solver uses your current promotion timeline "
+                f"({'enlisted' if start_com == 'enlisted' else start_com}). "
+                f"It cannot model the pay jump from a commissioning or warrant transition — "
+                f"your actual savings rate needed is likely lower than shown. "
+                f"Consider running two separate scenarios."
+            )
 
     with col_r:
         st.subheader("Assets & Goals")
@@ -612,8 +648,17 @@ with tab2:
         monthly_goal = st.number_input("Desired Monthly Income in Retirement ($)", value=8000, step=500)
 
         retire_base, _, _ = get_military_pay(retire_rank, yrs_at_retire, "92136", False)
-        est_pension = calc_high3_pension(retire_rank, yrs_at_retire, multiplier)
-        st.metric("Projected Monthly Pension (High-3 Avg)", f"${est_pension:,.2f}")
+        no_mil_retirement = st.checkbox(
+            "I don't plan to retire from the military (no pension)",
+            value=False,
+            help="Check this if you plan to separate before 20 years. Sets pension to $0."
+        )
+        if no_mil_retirement:
+            est_pension = 0.0
+            st.info("📋 Pension set to $0 — TSP savings rate calculated without a pension floor.")
+        else:
+            est_pension = calc_high3_pension(retire_rank, yrs_at_retire, multiplier)
+            st.metric("Projected Monthly Pension (High-3 Avg)", f"${est_pension:,.2f}")
 
         st.subheader("Post-Military Civilian Salary")
         civilian_monthly = st.number_input("Expected Monthly Civilian Salary ($)", min_value=0.0,
@@ -720,7 +765,7 @@ with tab2:
             total_nest_egg_needed, current_tsp,
             base_pay_schedule, civilian_monthly,
             mil_months, total_months,
-            expected_real_rate, inflation_rate
+            alloc_dict, inflation_rate
         )
 
         st.session_state.pmt_target = savings_pct * get_base_pay(start_rank, start_tis)
