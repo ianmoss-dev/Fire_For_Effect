@@ -209,41 +209,9 @@ def generate_mock_tsp_data(months=360):
         data[fund] = rng.normal(monthly_arith, monthly_sigma, months)
     return pd.DataFrame(data)
 
-@st.cache_data(show_spinner=False, ttl=86400)
-def _fetch_live_tsp_data():
-    """Fetches live TSP proxy data via yfinance. Only successful results are cached."""
-    import yfinance as yf
-
-    tickers = {'C': '^GSPC', 'S': '^RUT', 'I': 'EFA', 'F': 'AGG', 'G': '^IRX'}
-    frames = {}
-
-    for fund, ticker in tickers.items():
-        df = yf.download(ticker, start="2000-01-01", progress=False, auto_adjust=True)
-        if df.empty:
-            raise ValueError(f"No data returned for {ticker}")
-        # yfinance 0.2.x returns MultiIndex columns — flatten before accessing
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.droplevel(1)
-        monthly = df['Close'].resample('ME').last()
-        frames[fund] = monthly
-
-    combined = pd.DataFrame(frames).dropna()
-
-    # G-fund: ^IRX is an annualized yield %, convert to monthly return
-    combined['G'] = (1 + combined['G'] / 100) ** (1/12) - 1
-
-    # All others: price-based monthly returns
-    for fund in ['C', 'S', 'I', 'F']:
-        combined[fund] = combined[fund].pct_change()
-
-    return combined.dropna()
-
 def scrape_and_prep_tsp_data():
-    """Returns (DataFrame, source_label). Only live data is cached — proxy fallback is never cached."""
-    try:
-        return _fetch_live_tsp_data(), "Live"
-    except Exception:
-        return generate_mock_tsp_data(), "Proxy"
+    """Returns calibrated proxy data. Means match solver FUND_STATS exactly — no API drift."""
+    return generate_mock_tsp_data(), "Proxy"
 
 def get_lifecycle_allocation(years_to_retire):
     if years_to_retire > 20: return {'C': 0.50, 'S': 0.25, 'I': 0.25, 'F': 0.0, 'G': 0.0}
