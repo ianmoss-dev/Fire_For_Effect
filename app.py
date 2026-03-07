@@ -818,20 +818,20 @@ with tab2:
             pb.metric("Annual Pension Amount",   f"${annual_pension:,.0f}/yr")
             pc.metric("Total Expected Years of Pension Payments",
                       f"~{int(apv_value / annual_pension * (1 + 0.025)):.0f} yrs",
-                      help="Actuarially expected payment duration")
+                      help="Actuarially expected payment duration: or how long after you retire from military until you're dead 💀, probablistically.")
 
             pd2, pe = st.columns(2)
             pd2.metric(
-                "Pension Value Using SWR-Estimatation🤷",
+                "Pension Value Using SWR-Estimatation",
                 f"${swr_value:,.0f}",
                 help="How much you'd need in savings to replace this pension at a 4% withdrawal rate."
             )
             pe.metric(
-                "Pension Value Using Life Expectancy-Estimatation 💀",
+                "Pension Value Using Life Expectancy-Estimatation",
                 f"${apv_value:,.0f}",
                 delta=f"${swr_value - apv_value:+,.0f} vs SWR",
                 delta_color="inverse",
-                help="SSA 2022 life tables, 2.5% discount rate. The 'true' financial value accounting for mortality risk."
+                help="Based on SSA 2022 life tables, 2.5% discount rate. The 'true' financial value of the pension accounting for mortality risk."
             )
             st.caption(
                 "[4% Rule / SWR](https://www.investopedia.com/terms/f/four-percent-rule.asp) · "
@@ -2084,3 +2084,4 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
+
