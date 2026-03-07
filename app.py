@@ -558,10 +558,10 @@ with tab1:
 
     col1, col2 = st.columns(2)
     with col1:
-        rank = st.selectbox("Current Rank", CONFIG["ranks"], index=4, key="tab1_rank_widget")
+        rank = st.selectbox("Current Rank", CONFIG["ranks"], index=14, key="tab1_rank_widget")
         tis = st.number_input("Years of Service (TIS)", 0, 40, 4)
     with col2:
-        zip_code = st.text_input("Duty Station Zip Code", "92136")
+        zip_code = st.text_input("Duty Station Zip Code", "93943")
         dep = st.checkbox("With Dependents?", value=True)
         st.session_state.tracked_zip = zip_code
 
@@ -1974,5 +1974,6 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
+
 
 
