@@ -190,20 +190,23 @@ So I'm asking your permission to collect some anonymous usage data while you're 
 # mu        = arithmetic mean for proxy sampling = geo_mean + sigma²/2
 #             Corrects for variance drag so proxy geometric return matches solver
 FUND_STATS = {
-    'C': {'mu': 0.12338, 'sigma': 0.181, 'geo_mean': 0.107},
-    'S': {'mu': 0.11940, 'sigma': 0.202, 'geo_mean': 0.099},
-    'I': {'mu': 0.08262, 'sigma': 0.171, 'geo_mean': 0.068},
-    'F': {'mu': 0.05392, 'sigma': 0.043, 'geo_mean': 0.053},
-    'G': {'mu': 0.04700, 'sigma': 0.003, 'geo_mean': 0.047},
+    'C': {'mu': 0.11847, 'sigma': 0.181, 'geo_mean': 0.107},
+    'S': {'mu': 0.11518, 'sigma': 0.202, 'geo_mean': 0.099},
+    'I': {'mu': 0.08059, 'sigma': 0.171, 'geo_mean': 0.068},
+    'F': {'mu': 0.05268, 'sigma': 0.043, 'geo_mean': 0.053},
+    'G': {'mu': 0.04602, 'sigma': 0.003, 'geo_mean': 0.047},
 }
 
 def generate_mock_tsp_data(months=360):
-    """Fallback proxy data. Means and sigmas sourced from FUND_STATS — same values the solver uses."""
+    """Fallback proxy data. Monthly arithmetic mean = monthly_geo + monthly_sigma²/2
+    so the geometric compounding median matches the solver's projected CAGR exactly."""
     rng = np.random.default_rng(42)
-    data = {
-        fund: rng.normal(v['mu'] / 12, v['sigma'] / np.sqrt(12), months)
-        for fund, v in FUND_STATS.items()
-    }
+    data = {}
+    for fund, v in FUND_STATS.items():
+        monthly_geo   = (1 + v['geo_mean']) ** (1/12) - 1
+        monthly_sigma = v['sigma'] / np.sqrt(12)
+        monthly_arith = monthly_geo + (monthly_sigma ** 2) / 2
+        data[fund] = rng.normal(monthly_arith, monthly_sigma, months)
     return pd.DataFrame(data)
 
 @st.cache_data(show_spinner=False, ttl=86400)
