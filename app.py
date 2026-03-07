@@ -183,14 +183,24 @@ So I'm asking your permission to collect some anonymous usage data while you're 
 # --- MONTE CARLO HELPER FUNCTIONS ---
 # ==========================================
 
+# ── Single source of truth for all fund return assumptions ───────────────────
+# Source: tspfolio.com, since-inception data through 3/5/2026
+# μ = nominal CAGR  |  σ = annualized standard deviation
+FUND_STATS = {
+    'C': {'mu': 0.107, 'sigma': 0.181},
+    'S': {'mu': 0.099, 'sigma': 0.202},
+    'I': {'mu': 0.068, 'sigma': 0.171},
+    'F': {'mu': 0.053, 'sigma': 0.043},
+    'G': {'mu': 0.047, 'sigma': 0.003},
+}
+
 def generate_mock_tsp_data(months=360):
-    """Fallback high-fidelity proxy data if yfinance is unavailable."""
+    """Fallback proxy data. Means and sigmas sourced from FUND_STATS — same values the solver uses."""
     rng = np.random.default_rng(42)
-    stats = {
-        'C': [0.105, 0.15], 'S': [0.110, 0.18], 'I': [0.075, 0.17],
-        'F': [0.040, 0.05], 'G': [0.028, 0.01]
+    data = {
+        fund: rng.normal(v['mu'] / 12, v['sigma'] / np.sqrt(12), months)
+        for fund, v in FUND_STATS.items()
     }
-    data = {fund: rng.normal(s[0]/12, s[1]/np.sqrt(12), months) for fund, s in stats.items()}
     return pd.DataFrame(data)
 
 @st.cache_data(show_spinner=False, ttl=86400)
@@ -328,7 +338,7 @@ def get_military_pay(rank, tis, zip_code, has_dep):
 
 # --- PROMOTION TIMELINE & SAVINGS RATE HELPERS ---
 
-FUND_NOMINAL_RATES = {'C': 0.113, 'S': 0.094, 'I': 0.063, 'F': 0.054, 'G': 0.047}
+FUND_NOMINAL_RATES = {f: v['mu'] for f, v in FUND_STATS.items()}
 
 # Promotion timelines reflect when pay actually changes (~1 year after selection board).
 # Selection happens at typical primary zone TIS; pay follows ~12 months later.
@@ -661,7 +671,11 @@ with tab2:
 
     # Real returns (Fisher equation): (1+nominal)/(1+inflation) - 1
     def real(nominal): return round(((1 + nominal) / (1 + inflation_rate) - 1) * 100, 1)
-    rc, rs, ri, rf, rg = real(0.113), real(0.094), real(0.063), real(0.054), real(0.047)
+    rc = real(FUND_STATS['C']['mu'])
+    rs = real(FUND_STATS['S']['mu'])
+    ri = real(FUND_STATS['I']['mu'])
+    rf = real(FUND_STATS['F']['mu'])
+    rg = real(FUND_STATS['G']['mu'])
 
     with alloc_col:
         fc1, fc2, fc3, fc4, fc5, fc6 = st.columns(6)
@@ -671,22 +685,22 @@ with tab2:
             help="Large-cap U.S. stocks. Highest long-term growth, highest short-term swings."
         )
         pct_s = fc2.slider(
-            f"S-Fund (Small Cap)\n{rs:+.1f}% real ±22%/yr",
+            f"S-Fund (Small Cap)\n{rs:+.1f}% real ±20.2%/yr",
             0, 100, 0, 5,
             help="Small/mid-cap U.S. stocks. Higher potential, higher volatility than C Fund."
         )
         pct_i = fc3.slider(
-            f"I-Fund (Intl)\n{ri:+.1f}% real ±19%/yr",
+            f"I-Fund (Intl)\n{ri:+.1f}% real ±17.1%/yr",
             0, 100, 0, 5,
             help="International stocks. Diversification outside the U.S. market."
         )
         pct_f = fc4.slider(
-            f"F-Fund (Bonds)\n{rf:+.1f}% real ±4%/yr",
+            f"F-Fund (Bonds)\n{rf:+.1f}% real ±4.3%/yr",
             0, 100, 0, 5,
             help="U.S. bond index. Stabilizes your portfolio but lower long-term growth."
         )
         pct_g = fc5.slider(
-            f"G-Fund (Govt)\n{rg:+.1f}% real ±0%/yr",
+            f"G-Fund (Govt)\n{rg:+.1f}% real ±0.3%/yr",
             0, 100, 0, 5,
             help="Government securities. Guaranteed — cannot lose principal. Lowest return."
         )
@@ -1086,11 +1100,11 @@ consistency, and discipline.
 
         | Fund | Nominal CAGR | Std Dev |
         |---|---|---|
-        | C-Fund (S&P 500) | 11.3% | ±18%/yr |
-        | S-Fund (Small Cap) | 9.4% | ±22%/yr |
-        | I-Fund (International) | 6.3% | ±19%/yr |
-        | F-Fund (Bonds) | 5.4% | ±4%/yr |
-        | G-Fund (Govt Securities) | 4.7% | ±0%/yr |
+        | C-Fund (S&P 500) | 10.7% | ±18.1%/yr |
+        | S-Fund (Small Cap) | 9.9% | ±20.2%/yr |
+        | I-Fund (International) | 6.8% | ±17.1%/yr |
+        | F-Fund (Bonds) | 5.3% | ±4.3%/yr |
+        | G-Fund (Govt Securities) | 4.7% | ±0.3%/yr |
         | L-Fund | Dynamic blend based on years to retirement |
 
         Real returns shown in sliders use the Fisher equation: `(1 + nominal) / (1 + inflation) - 1`. They update live as you adjust the inflation slider.
