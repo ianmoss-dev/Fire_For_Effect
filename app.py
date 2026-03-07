@@ -709,7 +709,7 @@ with tab2:
 
         retire_base, _, _ = get_military_pay(retire_rank, yrs_at_retire, "92136", False)
         no_mil_retirement = st.checkbox(
-            "⚠️ I don't plan to retire from the military",
+            "I don't plan to retire from the military",
             value=False,
             help="Check this if you plan to separate before 20 years. Sets pension to $0 and removes the pension floor from all calculations."
         )
@@ -725,10 +725,9 @@ with tab2:
             retire_at_age  = current_age + max(0, yrs_at_retire - start_tis)
             swr_value      = annual_pension / 0.04
             apv_value      = calc_pension_apv(annual_pension, int(retire_at_age), discount_rate=0.025, sex=sex_for_apv.lower())
-            st.markdown(
-                f"~~Monthly: **${est_pension:,.0f}/mo** · Annual: **${annual_pension:,.0f}/yr** · "
-                f"SWR: **${swr_value:,.0f}** · APV: **${apv_value:,.0f}**~~",
-                unsafe_allow_html=False
+            st.caption(
+                f"❌ ${est_pension:,.0f}/mo · ${annual_pension:,.0f}/yr · "
+                f"SWR ${swr_value:,.0f} · APV ${apv_value:,.0f}"
             )
             est_pension = 0.0
         else:
@@ -1978,3 +1977,4 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
+
