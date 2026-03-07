@@ -598,8 +598,12 @@ with tab2:
         multiplier = 0.02 if "BRS" in retire_system else 0.025
 
         # Pull current rank/TIS from Tab 1 via import button
-        if "tab2_rank" not in st.session_state: st.session_state["tab2_rank"] = 4  # E-5 default index
-        if "tab2_tis" not in st.session_state: st.session_state["tab2_tis"] = 4.0
+        # Default to whatever Tab 1 has — fall back to E-5 only if Tab 1 hasn't been set
+        if "tab2_rank" not in st.session_state:
+            t1_rank = st.session_state.get("tab1_rank")
+            st.session_state["tab2_rank"] = CONFIG["ranks"].index(t1_rank) if t1_rank and t1_rank in CONFIG["ranks"] else 4
+        if "tab2_tis" not in st.session_state:
+            st.session_state["tab2_tis"] = float(st.session_state.get("tab1_tis", 4.0))
 
         if st.button("⬇️ Import Rank / TIS from Tab 1", key="import_tab1_rank"):
             t1_rank = st.session_state.get("tab1_rank")
