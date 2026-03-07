@@ -715,7 +715,7 @@ with tab2:
         )
         if no_mil_retirement:
             pass
-        sex_for_apv = st.radio("Sex (for actuarial life table)", ["Male", "Female"],
+        sex_for_apv = st.radio("Sex (only used for actuarial life expectancy)", ["Male", "Female"],
                               horizontal=True,
                               help="Used only for the actuarial pension value calculation.")
 
@@ -739,20 +739,20 @@ with tab2:
             )
 
             pa, pb, pc = st.columns(3)
-            pa.metric("Monthly Pension",  f"${est_pension:,.0f}/mo")
-            pb.metric("Annual Pension",   f"${annual_pension:,.0f}/yr")
-            pc.metric("Total Years of Pension Payments",
+            pa.metric("Monthly Pension Amount",  f"${est_pension:,.0f}/mo")
+            pb.metric("Annual Pension Amount",   f"${annual_pension:,.0f}/yr")
+            pc.metric("Total Expected Years of Pension Payments",
                       f"~{int(apv_value / annual_pension * (1 + 0.025)):.0f} yrs",
                       help="Actuarially expected payment duration")
 
             pd2, pe = st.columns(2)
             pd2.metric(
-                "💰 SWR Equivalent Value",
+                "Pension Value Using SWR-Estimatation🤷",
                 f"${swr_value:,.0f}",
                 help="How much you'd need in savings to replace this pension at a 4% withdrawal rate."
             )
             pe.metric(
-                "📊 Actuarial Present Value",
+                "Pension Value Using Life Expectancy-Estimatation 💀",
                 f"${apv_value:,.0f}",
                 delta=f"${swr_value - apv_value:+,.0f} vs SWR",
                 delta_color="inverse",
@@ -1974,6 +1974,7 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
