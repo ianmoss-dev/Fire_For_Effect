@@ -1,15 +1,25 @@
+# ════════════════════════════════════════════════════════════════════════════════
+# F.I.R.E. for Effect — Military Financial Planning App
+# ════════════════════════════════════════════════════════════════════════════════
+# Architecture: Single-file Streamlit app. All state lives in st.session_state.
+# Future: Refactor to multipage (pages/*.py) so session state persists across
+#         tab navigation — this fixes the rank/TIS sync issues from single-file tabs.
+# Data files required in same directory:
+#   - military_data.json  (base pay, BAH rates, zip→MHA mapping)
+# No external API calls — TSP returns use calibrated parametric proxy (see FUND_STATS).
+# ════════════════════════════════════════════════════════════════════════════════
 import streamlit as st
 import json
 import pandas as pd
 import numpy as np
-import altair as alt
+import altair as alt         # used for Sankey chart (Tab 3)
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
-import requests
+import requests              # retained for future use; no active API calls currently
 import io
-import hashlib
+import hashlib               # SHA-256 anonymous fingerprinting for analytics
 import datetime
-import gspread
+import gspread               # Google Sheets analytics logging
 from google.oauth2.service_account import Credentials
 
 # --- 1. CONFIGURATION ---
@@ -100,7 +110,11 @@ def log_session():
 def log_error(error_msg):
     st.session_state.last_error = str(error_msg)[:200]
 
-# --- Persistent State ---
+# ── Session State Initialization ─────────────────────────────────────────────
+# All keys initialized here with defaults. Streamlit reruns the entire script on
+# every widget interaction — session_state is the only thing that persists.
+# Keys prefixed tab3_ are written by Tab 3 and read by Tab 7 (PDF/plan).
+# Keys prefixed sim_ hold Monte Carlo results so the chart survives reruns.
 if "base_pay" not in st.session_state: st.session_state.base_pay = 0.0
 if "bah_amt" not in st.session_state: st.session_state.bah_amt = 0.0
 if "bas_amt" not in st.session_state: st.session_state.bas_amt = 0.0
@@ -122,7 +136,10 @@ if "tab3_guilt_free" not in st.session_state: st.session_state.tab3_guilt_free =
 if "bah_manual" not in st.session_state: st.session_state.bah_manual = False
 if "les_tsp_actual" not in st.session_state: st.session_state.les_tsp_actual = 0.0
 
-# --- Analytics State ---
+# ── Analytics State ───────────────────────────────────────────────────────────
+# Written to Google Sheets via log_session(). Logged either on PDF download or
+# on final render (whichever comes first). anon_id is SHA-256 of User-Agent —
+# no PII, not reversible.
 if "consent_given" not in st.session_state: st.session_state.consent_given = False
 if "session_start" not in st.session_state: st.session_state.session_start = datetime.datetime.now()
 if "anon_id" not in st.session_state: st.session_state.anon_id = get_anon_id()
@@ -136,6 +153,9 @@ if "pdf_downloaded" not in st.session_state: st.session_state.pdf_downloaded = F
 if "last_error" not in st.session_state: st.session_state.last_error = ""
 if "session_logged" not in st.session_state: st.session_state.session_logged = False
 
+# ── Consent / Analytics Gate ─────────────────────────────────────────────────
+# App does not render until user accepts. consent_given persists in session_state
+# so the gate doesn't re-appear on widget interactions within the same session.
 # --- CONSENT SCREEN ---
 if not st.session_state.consent_given:
     st.title("🎖️ F.I.R.E. for Effect")
@@ -180,6 +200,31 @@ So I'm asking your permission to collect some anonymous usage data while you're 
     st.stop()
 
 # ==========================================
+# ════════════════════════════════════════════════════════════════════════════════
+# MONTE CARLO HELPER FUNCTIONS
+#
+# FUND_STATS: single source of truth for all fund return assumptions.
+#   geo_mean  = target CAGR (used by solver and blended return display)
+#   mu        = annual arithmetic mean = monthly_geo + monthly_sigma^2/2
+#               (not used directly — FUND_MONTHLY_PARAMS derives monthly values)
+#   sigma     = annual standard deviation (annualized)
+#   Source: tspfolio.com since-inception returns through 3/5/2026
+#
+# FUND_MONTHLY_PARAMS: derived from FUND_STATS at module load.
+#   monthly_arith = monthly_geo + monthly_sigma^2/2
+#   This correction (variance drag) ensures parametric MC median matches
+#   the solver's deterministic projection over long horizons.
+#
+# run_real_monte_carlo: parametric approach — draws fresh Normal(mu,sigma) returns
+#   per fund per month per trial. Eliminates pool-sampling seed bias that caused
+#   S-fund to produce 8.6% success (vs expected ~55%) with a fixed seed.
+#   L-fund weight is always passed as 0.0 — see note in Tab 2 alloc section.
+#
+# scrape_and_prep_tsp_data: previously fetched live data via yfinance API.
+#   API removed — drift between live returns and FUND_STATS broke solver/MC
+#   alignment. Now returns FUND_MONTHLY_PARAMS directly. Name retained for
+#   call-site compatibility.
+# ════════════════════════════════════════════════════════════════════════════════
 # --- MONTE CARLO HELPER FUNCTIONS ---
 # ==========================================
 
@@ -274,6 +319,12 @@ def run_real_monte_carlo(current_age, retire_age, initial_bal, monthly_contrib,
 
     return results
 
+# ════════════════════════════════════════════════════════════════════════════════
+# 2. DATA UTILITIES
+# get_base_pay / get_military_pay: look up pay tables from military_data.json
+# build_monthly_base_pay_schedule: projects month-by-month income using promotion
+#   timeline so the solver uses accurate income, not a static rank assumption.
+# ════════════════════════════════════════════════════════════════════════════════
 # --- 2. DATA UTILITIES ---
 @st.cache_data
 def load_military_data():
@@ -310,6 +361,18 @@ def get_military_pay(rank, tis, zip_code, has_dep):
         bah = DATA.get("bah_rates", {}).get(mha_code, {}).get(rank, {}).get(dep_key, 0.0)
     return float(base), float(bas), float(bah)
 
+# ════════════════════════════════════════════════════════════════════════════════
+# PROMOTION TIMELINE & SAVINGS RATE HELPERS
+# PROMOTION_TIMELINE: Army primary-zone TIS thresholds by rank. Other services
+#   are approximate. Does not model below-zone, above-zone, or stagnation.
+# solve_savings_rate: binary search (60 iterations) over savings percentage.
+#   Uses month-by-month gliding L-fund allocation to match MC exactly.
+#   Signature: (target, current_tsp, base_pay_schedule, civilian_monthly,
+#               mil_months, total_months, alloc_dict, inflation_rate)
+# get_blended_nominal_return: weighted average of fund geo_means. Used for
+#   display metrics (blended return label) and savings rate explorer chart.
+#   NOTE: The solver does NOT use this — it uses per-fund monthly rates directly.
+# ════════════════════════════════════════════════════════════════════════════════
 # --- PROMOTION TIMELINE & SAVINGS RATE HELPERS ---
 
 FUND_NOMINAL_RATES = {f: v['geo_mean'] for f, v in FUND_STATS.items()}
@@ -545,6 +608,11 @@ st.title("🎖️ F.I.R.E. for Effect: Financial Planning for Soldiers")
 st.caption("Finance is boring. Do it once, get it right, and move on.")
 st.markdown("---")
 
+# ── Tab Layout ────────────────────────────────────────────────────────────────
+# All 7 tabs are rendered on every rerun — only the active tab is visible.
+# This is the core limitation of single-file Streamlit. Widgets on inactive tabs
+# still execute, which can cause unexpected state writes. Known issue; deferred
+# to multipage refactor.
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "💰 What Do You Make?", "📈 How Much Do You Need to Save?", "💸 Where Does It Go?",
     "🎯 Know the Game", "✅ The Way Ahead", "📬 Feedback", "📄 Your Plan"
@@ -661,6 +729,13 @@ with tab1:
     c_c.metric("BAS (Tax-Free)",  f"${bas:,.2f}")
     c_d.metric("Special Pays",    f"${special_pay:,.2f}")
 
+# ════════════════════════════════════════════════════════════════════════════════
+# TAB 2: RETIREMENT SAVINGS RATE SOLVER
+# Core logic: binary search finds the single % of base pay that, compounded at
+# the blended real return over the full career, hits the nest egg target exactly.
+# Inputs: rank, TIS, retirement assumptions, TSP allocation, inflation rate.
+# Outputs: savings_pct (→ MyPay), contrib_schedule (→ MC sim), nest egg target.
+# ════════════════════════════════════════════════════════════════════════════════
 # --- TAB 2: RETIREMENT ---
 with tab2:
     st.session_state.tabs_visited.add(2)
@@ -799,58 +874,66 @@ with tab2:
     rf = real(FUND_STATS['F']['geo_mean'])
     rg = real(FUND_STATS['G']['geo_mean'])
 
+    # ── Fund allocation: user enters C/S/I/F; G auto-fills as remainder ─────────
+    # NOTE: L-fund is intentionally excluded from manual allocation.
+    # The L-fund glide path cannot be modeled accurately in the parametric MC
+    # (it inflates success rates because the lifecycle assumptions don't match
+    # the parametric Normal(mu,sigma) draws used per-fund). G absorbs the remainder
+    # so allocations always sum to 100% without user friction.
     with alloc_col:
-        fc1, fc2, fc3, fc4, fc5, fc6 = st.columns(6)
-        pct_c = fc1.slider(
-            f"C-Fund (S&P 500)\n{rc:+.1f}% real ±18%/yr",
-            0, 100, 0, 5,
-            help="Large-cap U.S. stocks. Highest long-term growth, highest short-term swings."
+        fc1, fc2, fc3, fc4, fc5 = st.columns(5)
+        pct_c = fc1.number_input(
+            f"C-Fund\n{rc:+.1f}% real",
+            min_value=0, max_value=100, value=0, step=5,
+            help="Large-cap U.S. stocks (S&P 500 index). Highest long-term growth, highest short-term swings."
         )
-        pct_s = fc2.slider(
-            f"S-Fund (Small Cap)\n{rs:+.1f}% real ±20.2%/yr",
-            0, 100, 0, 5,
+        pct_s = fc2.number_input(
+            f"S-Fund\n{rs:+.1f}% real",
+            min_value=0, max_value=100, value=0, step=5,
             help="Small/mid-cap U.S. stocks. Higher potential, higher volatility than C Fund."
         )
-        pct_i = fc3.slider(
-            f"I-Fund (Intl)\n{ri:+.1f}% real ±17.1%/yr",
-            0, 100, 0, 5,
+        pct_i = fc3.number_input(
+            f"I-Fund\n{ri:+.1f}% real",
+            min_value=0, max_value=100, value=0, step=5,
             help="International stocks. Diversification outside the U.S. market."
         )
-        pct_f = fc4.slider(
-            f"F-Fund (Bonds)\n{rf:+.1f}% real ±4.3%/yr",
-            0, 100, 0, 5,
+        pct_f = fc4.number_input(
+            f"F-Fund\n{rf:+.1f}% real",
+            min_value=0, max_value=100, value=0, step=5,
             help="U.S. bond index. Stabilizes your portfolio but lower long-term growth."
         )
-        pct_g = fc5.slider(
-            f"G-Fund (Govt)\n{rg:+.1f}% real ±0.3%/yr",
-            0, 100, 0, 5,
-            help="Government securities. Guaranteed — cannot lose principal. Lowest return."
+        # G-fund is the auto-computed remainder — always makes total = 100%
+        manual_sum_no_g = pct_c + pct_s + pct_i + pct_f
+        pct_g = max(0, 100 - manual_sum_no_g)
+        fc5.metric(
+            f"G-Fund (auto)\n{rg:+.1f}% real",
+            f"{pct_g}%",
+            delta="Remainder" if pct_g > 0 else "Fully allocated",
+            delta_color="normal" if pct_g > 0 else "off",
+            help="Government securities. Remainder after C+S+I+F — always keeps total at 100%."
         )
-        manual_sum = pct_c + pct_s + pct_i + pct_f + pct_g
-        pct_l = max(0, 100 - manual_sum)
-        fc6.metric(
-            "L-Fund (Auto)\nLifecycle blend",
-            f"{pct_l}%",
-            delta="Remainder" if pct_l > 0 else "None",
-            delta_color="normal" if pct_l > 0 else "off",
-            help="Whatever you don't manually allocate goes here. TSP's default target-date strategy."
-        )
+        manual_sum = manual_sum_no_g + pct_g  # always 100 unless over-allocated
 
-    if manual_sum > 100:
-        st.error(f"⚠️ Over-allocated by {manual_sum - 100}% — reduce your fund allocations. Total must be ≤ 100%.")
+    # Validate: C+S+I+F cannot exceed 100 (G would go negative)
+    if manual_sum_no_g > 100:
+        st.error(f"⚠️ Over-allocated by {manual_sum_no_g - 100}% — C+S+I+F cannot exceed 100%. G-Fund floored at 0%.")
         allocation_valid = False
     else:
-        alloc_display = f"C:{pct_c}% | S:{pct_s}% | I:{pct_i}% | F:{pct_f}% | G:{pct_g}% | L-Fund (auto): {pct_l}%"
+        alloc_display = f"C:{pct_c}% | S:{pct_s}% | I:{pct_i}% | F:{pct_f}% | G:{pct_g}%"
         st.success(f"✅ Allocation: {alloc_display}")
         allocation_valid = True
 
+    # alloc_dict feeds the solver. No L key — L-fund removed entirely.
     alloc_dict = {
         'C': pct_c / 100, 'S': pct_s / 100, 'I': pct_i / 100,
-        'F': pct_f / 100, 'G': pct_g / 100, 'L': pct_l / 100,
+        'F': pct_f / 100, 'G': pct_g / 100, 'L': 0.0,
     }
-    # Monte Carlo allocation (L-fund expands dynamically inside the sim)
-    mc_manual_alloc = {k: v for k, v in alloc_dict.items() if k != 'L'}
-    use_lc = pct_l > 0
+    # mc_manual_alloc is what the parametric MC uses — pure 5-fund allocation, no L-fund.
+    mc_manual_alloc = {'C': pct_c/100, 'S': pct_s/100, 'I': pct_i/100, 'F': pct_f/100, 'G': pct_g/100}
+    # NOTE: use_lc is now always False. L-fund glide path is excluded from MC.
+    # Kept as a variable for clarity in the MC call below — do not re-enable without
+    # rebuilding the MC to properly handle the lifecycle blend.
+    use_lc = False
 
     # Blended nominal & real return
     expected_nom       = get_blended_nominal_return(alloc_dict, years_to_grow)
@@ -864,6 +947,9 @@ with tab2:
         # Build projected base pay schedule for military phase
         base_pay_schedule = build_monthly_base_pay_schedule(start_rank, start_tis, min(mil_months, total_months))
 
+        # Binary search solver: returns (savings_pct, monthly_contrib_schedule)
+        # savings_pct = % of base pay to save each month during military phase
+        # contrib_schedule = list of dollar amounts per month (military + civilian phases)
         savings_pct, contrib_schedule = solve_savings_rate(
             total_nest_egg_needed, current_tsp,
             base_pay_schedule, civilian_monthly,
@@ -1085,7 +1171,12 @@ with tab2:
 
         st.plotly_chart(fig_exp, use_container_width=True)
 
-        # ── Monte Carlo ───────────────────────────────────────────────────────
+        # ── Luck & Timing Roulette (Parametric Monte Carlo) ──────────────────────
+        # Draws fresh Normal(mu, sigma) returns each trial — no pool sampling.
+        # This ensures MC median converges to solver projection regardless of seed.
+        # L-fund excluded: lifecycle glide path inflates success rates when modeled
+        # with static parametric distributions. G-fund absorbs the allocation gap.
+        # Results stored in session_state so chart survives widget reruns.
         st.divider()
         st.subheader("🎲 Luck & Timing Roulette (1,000 Trials)")
         st.markdown("""
@@ -1118,10 +1209,11 @@ consistency, and discipline.
             st.session_state.monte_carlo_run = True
             with st.spinner("Running 1,000 trials..."):
                 hist_returns, data_source = scrape_and_prep_tsp_data()
+                # l_fund_weight=0.0 — L-fund removed from MC. See note above alloc_dict.
                 sim_results = run_real_monte_carlo(
                     current_age, age_at_retire, current_tsp,
                     contrib_schedule, hist_returns,
-                    pct_l / 100.0, mc_manual_alloc,
+                    0.0, mc_manual_alloc,
                     inflation_rate=inflation_rate, trials=1000
                 )
                 # Store everything needed to redraw the chart across reruns
@@ -1237,6 +1329,14 @@ consistency, and discipline.
 
         **Other:** Nest egg target uses the 4% safe withdrawal rule. Civilian salary is a major unknown — be conservative.
         """)
+# ════════════════════════════════════════════════════════════════════════════════
+# TAB 3: CONSCIOUS SPENDING / BUDGET
+# Two paths: LES entry (accurate, pulls real deductions) or skip (estimate only).
+# Key outputs written to session_state for Tab 7 PDF:
+#   tab3_take_home, tab3_fixed, tab3_invested, tab3_guilt_free
+# Tax estimates are rough — BAH/BAS excluded from taxable income per law.
+# les_tsp_actual is read by Tab 2 to show the TSP gap callout.
+# ════════════════════════════════════════════════════════════════════════════════
 # --- TAB 3: CONSCIOUS SPENDING ---
 with tab3:
     st.session_state.tabs_visited.add(3)
@@ -1756,6 +1856,13 @@ with tab6:
     """
     st.markdown(contact_form, unsafe_allow_html=True)
 
+# ════════════════════════════════════════════════════════════════════════════════
+# TAB 7: YOUR PLAN / PDF
+# Reads from session_state values set by Tabs 1, 2, and 3.
+# "missing" list gates PDF generation — all three prior tabs must be completed.
+# PDF generated in-memory with fpdf2. No temp files written to disk.
+# way_forward text is also shown on-screen and included in the PDF.
+# ════════════════════════════════════════════════════════════════════════════════
 # --- TAB 7: MY FINANCIAL PLAN (PDF) ---
 with tab7:
     st.session_state.tabs_visited.add(7)
@@ -1962,6 +2069,9 @@ with tab7:
                       delta="On track" if surplus >= 0 else "Needs attention",
                       delta_color=delta_color)
 
+# ── Session Logger (exit path) ────────────────────────────────────────────────
+# Streamlit has no true "on exit" hook. This block runs on the final render pass.
+# If session was already logged via PDF download button, this is a no-op.
 # --- LOG SESSION ON EXIT (if not already logged via PDF download) ---
 if not st.session_state.session_logged:
     st.session_state.session_logged = True
@@ -1974,7 +2084,3 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
-
-
-
-
