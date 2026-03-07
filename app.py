@@ -197,21 +197,22 @@ FUND_STATS = {
     'G': {'mu': 0.04602, 'sigma': 0.003, 'geo_mean': 0.047},
 }
 
-def generate_mock_tsp_data(months=360):
-    """Fallback proxy data. Monthly arithmetic mean = monthly_geo + monthly_sigma²/2
-    so the geometric compounding median matches the solver's projected CAGR exactly."""
-    rng = np.random.default_rng(42)
-    data = {}
+def get_fund_monthly_params():
+    """Returns {fund: (monthly_arith_mean, monthly_sigma)} for all funds.
+    Arithmetic mean = monthly_geo + sigma^2/2 so geometric compounding matches target CAGR.
+    """
+    params = {}
     for fund, v in FUND_STATS.items():
-        monthly_geo   = (1 + v['geo_mean']) ** (1/12) - 1
-        monthly_sigma = v['sigma'] / np.sqrt(12)
-        monthly_arith = monthly_geo + (monthly_sigma ** 2) / 2
-        data[fund] = rng.normal(monthly_arith, monthly_sigma, months)
-    return pd.DataFrame(data)
+        mg = (1 + v['geo_mean']) ** (1/12) - 1
+        ms = v['sigma'] / np.sqrt(12)
+        params[fund] = (mg + ms**2 / 2, ms)
+    return params
+
+FUND_MONTHLY_PARAMS = get_fund_monthly_params()
 
 def scrape_and_prep_tsp_data():
-    """Returns calibrated proxy data. Means match solver FUND_STATS exactly — no API drift."""
-    return generate_mock_tsp_data(), "Proxy"
+    """Returns fund monthly params. MC generates fresh returns each trial — no pool drift."""
+    return FUND_MONTHLY_PARAMS, "Proxy"
 
 def get_lifecycle_allocation(years_to_retire):
     if years_to_retire > 20: return {'C': 0.50, 'S': 0.25, 'I': 0.25, 'F': 0.0, 'G': 0.0}
@@ -220,27 +221,28 @@ def get_lifecycle_allocation(years_to_retire):
     else: return {'C': 0.0, 'S': 0.0, 'I': 0.0, 'F': 0.3, 'G': 0.7}
 
 def run_real_monte_carlo(current_age, retire_age, initial_bal, monthly_contrib,
-                         hist_returns, l_fund_weight, manual_alloc, inflation_rate=0.025, trials=1000):
+                         fund_params, l_fund_weight, manual_alloc, inflation_rate=0.025, trials=1000):
     """
-    Runs an optimized NumPy simulation.
-    Correctly blends manual TSP fund allocations with the dynamic L-Fund.
+    Parametric Monte Carlo — draws fresh returns from Normal(mu, sigma) each trial.
+    Eliminates pool-sampling bias. Median converges to solver projection by construction.
+    fund_params: {fund: (monthly_arith_mean, monthly_sigma)} from FUND_MONTHLY_PARAMS
     """
     months = int((retire_age - current_age) * 12)
-    monthly_inflation = (1 + inflation_rate)**(1/12) - 1
+    monthly_infl = (1 + inflation_rate)**(1/12) - 1
+    funds = ['C', 'S', 'I', 'F', 'G']
 
     # Normalize contribution schedule
     if np.isscalar(monthly_contrib):
-        contrib_schedule = np.full(months, monthly_contrib)
+        contrib_schedule = np.full(months, float(monthly_contrib))
     else:
-        contrib_schedule = np.array(monthly_contrib)
+        contrib_schedule = np.array(monthly_contrib, dtype=float)
         if len(contrib_schedule) < months:
             contrib_schedule = np.pad(contrib_schedule, (0, months - len(contrib_schedule)), 'edge')
         else:
             contrib_schedule = contrib_schedule[:months]
 
-    # 1. Pre-calculate exact monthly allocations (Blending Manual + L-Fund)
+    # Pre-calculate monthly allocation weights (gliding L-fund)
     monthly_allocs = []
-    funds = ['C', 'S', 'I', 'F', 'G']
     for i in range(months):
         alloc = manual_alloc.copy()
         if l_fund_weight > 0:
@@ -249,27 +251,25 @@ def run_real_monte_carlo(current_age, retire_age, initial_bal, monthly_contrib,
             for f, w in lc_alloc.items():
                 alloc[f] = alloc.get(f, 0) + (l_fund_weight * w)
         monthly_allocs.append([alloc.get(f, 0) for f in funds])
+    allocs_arr = np.array(monthly_allocs)   # shape (months, 5)
 
-    # Convert to NumPy for vectorized dot product
-    monthly_allocs_arr = np.array(monthly_allocs)
+    # Extract per-fund distribution params as arrays aligned to funds list
+    mu_arr    = np.array([fund_params[f][0] for f in funds])   # monthly arith means
+    sigma_arr = np.array([fund_params[f][1] for f in funds])   # monthly sigmas
 
-    # 2. Extract historical returns to a pure NumPy array for speed
-    hist_returns_arr = hist_returns[funds].values
-
-    # Pre-allocate the results array
+    # Pre-allocate results
     results = np.zeros((trials, months + 1))
     results[:, 0] = initial_bal
 
-    # 3. Run trials
     for t in range(trials):
-        sample_indices = np.random.randint(0, len(hist_returns_arr), size=months)
-        sampled_returns = hist_returns_arr[sample_indices]
+        # Draw fresh independent returns for every fund every month: shape (months, 5)
+        raw_returns = np.random.normal(mu_arr, sigma_arr, size=(months, 5))
 
         balance = initial_bal
         for i in range(months):
-            nom_ret = np.dot(sampled_returns[i], monthly_allocs_arr[i])
-            real_ret = (1 + nom_ret) / (1 + monthly_inflation) - 1
-            balance = (balance * (1 + real_ret)) + contrib_schedule[i]
+            nom_ret  = np.dot(raw_returns[i], allocs_arr[i])
+            real_ret = (1 + nom_ret) / (1 + monthly_infl) - 1
+            balance  = balance * (1 + real_ret) + contrib_schedule[i]
             results[t, i + 1] = balance
 
     return results
@@ -435,6 +435,85 @@ def solve_savings_rate(target_nest_egg, current_tsp, base_pay_schedule,
     contrib_schedule = [pct * inc for inc in income_schedule]
     return pct, contrib_schedule
 
+
+# ── SSA 2022 Period Life Table (ssa.gov/oact/STATS/table4c6.html) ─────────────
+# Death probabilities (qx) by age. Ages 0-78: exact SSA values.
+# Ages 79-119: Gompertz extrapolation from ages 68-78 trend.
+_QX_M_RAW = {
+    0:0.006064,1:0.000491,2:0.000309,3:0.000248,4:0.000199,
+    5:0.000167,6:0.000143,7:0.000126,8:0.000121,9:0.000121,
+    10:0.000127,11:0.000143,12:0.000171,13:0.000227,14:0.000320,
+    15:0.000451,16:0.000622,17:0.000826,18:0.001026,19:0.001182,
+    20:0.001301,21:0.001404,22:0.001498,23:0.001586,24:0.001679,
+    25:0.001776,26:0.001881,27:0.001985,28:0.002095,29:0.002219,
+    30:0.002332,31:0.002445,32:0.002562,33:0.002653,34:0.002716,
+    35:0.002791,36:0.002894,37:0.002994,38:0.003091,39:0.003217,
+    40:0.003353,41:0.003499,42:0.003642,43:0.003811,44:0.003996,
+    45:0.004175,46:0.004388,47:0.004666,48:0.004973,49:0.005305,
+    50:0.005666,51:0.006069,52:0.006539,53:0.007073,54:0.007675,
+    55:0.008348,56:0.009051,57:0.009822,58:0.010669,59:0.011548,
+    60:0.012458,61:0.013403,62:0.014450,63:0.015571,64:0.016737,
+    65:0.017897,66:0.019017,67:0.020213,68:0.021569,69:0.023088,
+    70:0.024828,71:0.026705,72:0.028761,73:0.031116,74:0.033861,
+    75:0.037088,76:0.041126,77:0.045241,78:0.049793,
+}
+_QX_F_RAW = {
+    0:0.005119,1:0.000398,2:0.000240,3:0.000198,4:0.000160,
+    5:0.000134,6:0.000118,7:0.000109,8:0.000106,9:0.000106,
+    10:0.000111,11:0.000121,12:0.000140,13:0.000162,14:0.000188,
+    15:0.000224,16:0.000276,17:0.000337,18:0.000395,19:0.000450,
+    20:0.000496,21:0.000532,22:0.000567,23:0.000610,24:0.000650,
+    25:0.000699,26:0.000743,27:0.000796,28:0.000855,29:0.000924,
+    30:0.000988,31:0.001053,32:0.001123,33:0.001198,34:0.001263,
+    35:0.001324,36:0.001403,37:0.001493,38:0.001596,39:0.001700,
+    40:0.001803,41:0.001905,42:0.002009,43:0.002116,44:0.002223,
+    45:0.002352,46:0.002516,47:0.002712,48:0.002936,49:0.003177,
+    50:0.003407,51:0.003642,52:0.003917,53:0.004238,54:0.004619,
+    55:0.005040,56:0.005493,57:0.005987,58:0.006509,59:0.007067,
+    60:0.007658,61:0.008305,62:0.008991,63:0.009681,64:0.010343,
+    65:0.011018,66:0.011743,67:0.012532,68:0.013512,69:0.014684,
+    70:0.016025,71:0.017468,72:0.019195,73:0.021195,74:0.023452,
+    75:0.025980,76:0.029153,77:0.032394,78:0.035888,
+}
+
+def _gompertz_extend(qx_raw, max_age=119):
+    """Extend qx table to max_age via Gompertz fit on ages 68-78."""
+    fit_ages = list(range(68, 79))
+    B = np.polyfit(fit_ages, np.log([qx_raw[a] for a in fit_ages]), 1)[0]
+    result = dict(qx_raw)
+    q = qx_raw[78]
+    for age in range(79, max_age + 1):
+        q = min(q * np.exp(B), 1.0)
+        result[age] = q
+    return result
+
+def _build_lx(qx):
+    lx = {0: 1.0}
+    for age in range(1, 120):
+        lx[age] = lx[age - 1] * (1 - qx.get(age - 1, 1.0))
+    return lx
+
+_QX_MALE   = _gompertz_extend(_QX_M_RAW)
+_QX_FEMALE = _gompertz_extend(_QX_F_RAW)
+LX_MALE    = _build_lx(_QX_MALE)
+LX_FEMALE  = _build_lx(_QX_FEMALE)
+
+def calc_pension_apv(annual_pension, start_age, discount_rate=0.025, sex='male', max_age=100):
+    """
+    Actuarial Present Value of a pension stream.
+    = sum over t of: annual_pension * P(alive at start_age+t | alive at start_age) * (1+r)^-t
+    Source: SSA 2022 Period Life Table (2025 Trustees Report)
+    """
+    lx = LX_MALE if sex == 'male' else LX_FEMALE
+    lx_start = lx.get(start_age, 1e-9)
+    apv = 0.0
+    for t in range(max_age - start_age):
+        age = start_age + t
+        if age >= 120: break
+        survival = lx[age] / lx_start
+        apv += annual_pension * survival * (1 + discount_rate) ** (-t)
+    return apv
+
 def calc_high3_pension(retire_rank, yrs_at_retire, multiplier):
     """
     Averages base pay over the 3 years immediately preceding retirement,
@@ -596,29 +675,10 @@ with tab2:
         retire_system = st.radio("Retirement System", ["BRS (2.0%)", "Legacy / High-3 (2.5%)"], horizontal=True)
         multiplier = 0.02 if "BRS" in retire_system else 0.025
 
-        # Auto-sync rank/TIS from Tab 1 — always mirrors Tab 1 unless user overrides
-        t1_rank = st.session_state.get("tab1_rank")
-        t1_tis  = st.session_state.get("tab1_tis", 4.0)
-        default_rank_idx = CONFIG["ranks"].index(t1_rank) if t1_rank and t1_rank in CONFIG["ranks"] else 4
-        default_tis      = float(t1_tis)
-
-        # Allow manual override via session state (set by import button)
-        if "tab2_rank_override" not in st.session_state:
-            st.session_state["tab2_rank_override"] = None
-        if "tab2_tis_override" not in st.session_state:
-            st.session_state["tab2_tis_override"] = None
-
-        if st.button("⬇️ Lock Rank / TIS from Tab 1", key="import_tab1_rank",
-                     help="Locks current Tab 1 values — stops auto-syncing until you click again"):
-            st.session_state["tab2_rank_override"] = default_rank_idx
-            st.session_state["tab2_tis_override"]  = default_tis
-
-        rank_idx = st.session_state["tab2_rank_override"] if st.session_state["tab2_rank_override"] is not None else default_rank_idx
-        tis_val  = st.session_state["tab2_tis_override"]  if st.session_state["tab2_tis_override"]  is not None else default_tis
-
-        start_rank = st.selectbox("Current Rank", CONFIG["ranks"], index=rank_idx, key="tab2_rank_widget")
+        o1_idx = CONFIG["ranks"].index("O-1") if "O-1" in CONFIG["ranks"] else 0
+        start_rank = st.selectbox("Current Rank", CONFIG["ranks"], index=o1_idx)
         start_tis  = st.number_input("Current Years of Service", min_value=0.0, max_value=40.0,
-                                     value=tis_val, step=0.5)
+                                     value=0.0, step=0.5)
         retire_rank = st.selectbox("Expected Rank at Retirement", CONFIG["ranks"], index=20)
         yrs_at_retire = st.slider("Total Years of Service at Retirement", 20, 40, 20)
         current_age   = st.slider("Current Age", 18, 60, 27)
@@ -649,16 +709,63 @@ with tab2:
 
         retire_base, _, _ = get_military_pay(retire_rank, yrs_at_retire, "92136", False)
         no_mil_retirement = st.checkbox(
-            "I don't plan to retire from the military (no pension)",
+            "⚠️ I don't plan to retire from the military",
             value=False,
-            help="Check this if you plan to separate before 20 years. Sets pension to $0."
+            help="Check this if you plan to separate before 20 years. Sets pension to $0 and removes the pension floor from all calculations."
         )
         if no_mil_retirement:
+            pass
+        sex_for_apv = st.radio("Sex (for actuarial life table)", ["Male", "Female"],
+                              horizontal=True,
+                              help="Used only for the actuarial pension value calculation.")
+
+        if no_mil_retirement:
+            est_pension = calc_high3_pension(retire_rank, yrs_at_retire, multiplier)
+            annual_pension = est_pension * 12
+            retire_at_age  = current_age + max(0, yrs_at_retire - start_tis)
+            swr_value      = annual_pension / 0.04
+            apv_value      = calc_pension_apv(annual_pension, int(retire_at_age), discount_rate=0.025, sex=sex_for_apv.lower())
+            st.markdown(
+                f"~~Monthly: **${est_pension:,.0f}/mo** · Annual: **${annual_pension:,.0f}/yr** · "
+                f"SWR: **${swr_value:,.0f}** · APV: **${apv_value:,.0f}**~~",
+                unsafe_allow_html=False
+            )
             est_pension = 0.0
-            st.info("📋 Pension set to $0 — TSP savings rate calculated without a pension floor.")
         else:
             est_pension = calc_high3_pension(retire_rank, yrs_at_retire, multiplier)
-            st.metric("Projected Monthly Pension (High-3 Avg)", f"${est_pension:,.2f}")
+            annual_pension = est_pension * 12
+            retire_at_age  = current_age + max(0, yrs_at_retire - start_tis)
+            swr_value      = annual_pension / 0.04
+            apv_value      = calc_pension_apv(
+                annual_pension, int(retire_at_age),
+                discount_rate=0.025,
+                sex=sex_for_apv.lower()
+            )
+
+            pa, pb, pc = st.columns(3)
+            pa.metric("Monthly Pension",  f"${est_pension:,.0f}/mo")
+            pb.metric("Annual Pension",   f"${annual_pension:,.0f}/yr")
+            pc.metric("Total Years of Pension Payments",
+                      f"~{int(apv_value / annual_pension * (1 + 0.025)):.0f} yrs",
+                      help="Actuarially expected payment duration")
+
+            pd2, pe = st.columns(2)
+            pd2.metric(
+                "💰 SWR Equivalent Value",
+                f"${swr_value:,.0f}",
+                help="How much you'd need in savings to replace this pension at a 4% withdrawal rate."
+            )
+            pe.metric(
+                "📊 Actuarial Present Value",
+                f"${apv_value:,.0f}",
+                delta=f"${swr_value - apv_value:+,.0f} vs SWR",
+                delta_color="inverse",
+                help="SSA 2022 life tables, 2.5% discount rate. The 'true' financial value accounting for mortality risk."
+            )
+            st.caption(
+                "[4% Rule / SWR](https://www.investopedia.com/terms/f/four-percent-rule.asp) · "
+                "[SSA 2022 Actuarial Life Tables](https://www.ssa.gov/oact/STATS/table4c6.html)"
+            )
 
         st.subheader("Post-Military Civilian Salary")
         civilian_monthly = st.number_input("Expected Monthly Civilian Salary ($)", min_value=0.0,
