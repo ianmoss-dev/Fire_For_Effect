@@ -180,6 +180,21 @@ No names. No financial data. No personal information.
 It simply helps us answer one question: is this tool actually useful — or do people close it after 15 seconds?
     """)
 
+    st.markdown("""
+<style>
+div.stButton > button[kind="primary"] {
+    background-color: #2dc653;
+    border-color: #2dc653;
+    color: white;
+}
+div.stButton > button[kind="primary"]:hover {
+    background-color: #25a244;
+    border-color: #25a244;
+    color: white;
+}
+</style>
+""", unsafe_allow_html=True)
+
     if st.button("✅ Let's go.", type="primary", use_container_width=False):
         st.session_state.consent_given = True
         st.rerun()
