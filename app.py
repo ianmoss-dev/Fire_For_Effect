@@ -1258,121 +1258,192 @@ Fidelity reportedly found their highest-performing accounts belonged to people w
             f"More on why this works: [Time Value of Money](https://www.investopedia.com/terms/t/timevalueofmoney.asp)."
         )
 
+        # ── TSP Ceiling / Overflow Cascade ───────────────────────────────────
+        # 2026 IRS limits: TSP employee $24,500/yr; catch-up (50+) $31,000/yr; IRA $7,000/yr
+        _TSP_ANNUAL      = 31000 if current_age >= 50 else 24500
+        _TSP_MONTHLY_MAX = _TSP_ANNUAL / 12
+        _IRA_MONTHLY_MAX = 7000 / 12          # per person
+
+        if current_base > 0 and monthly_dollar_equiv > _TSP_MONTHLY_MAX:
+            _mypay_pct   = (_TSP_MONTHLY_MAX / current_base) * 100
+            _overflow    = monthly_dollar_equiv - _TSP_MONTHLY_MAX
+
+            # Build the cascade message
+            _cascade_lines = [
+                f"**This is a good problem to have — you've leveled up.**\n\n"
+                f"Your required savings of **${monthly_dollar_equiv:,.0f}/month** exceeds "
+                f"the {'catch-up ' if current_age >= 50 else ''}TSP contribution limit "
+                f"(**${_TSP_MONTHLY_MAX:,.0f}/month** in 2026). "
+                f"Here's where each dollar goes:\n"
+            ]
+
+            _remaining = _overflow
+            _step = 1
+
+            _cascade_lines.append(
+                f"**{_step}. Set MyPay to {_mypay_pct:.1f}% of base pay** "
+                f"→ maxes your TSP at **${_TSP_MONTHLY_MAX:,.0f}/month** "
+                f"({'$31,000' if current_age >= 50 else '$24,500'}/yr). "
+                f"[Log in to MyPay](https://mypay.dfas.mil)"
+            )
+            _step += 1
+
+            if _remaining > 0:
+                _ira_contrib = min(_remaining, _IRA_MONTHLY_MAX)
+                _remaining  -= _ira_contrib
+                _cascade_lines.append(
+                    f"**{_step}. Contribute ${_ira_contrib:,.0f}/month to your IRA** "
+                    f"→ ${_ira_contrib * 12:,.0f}/yr "
+                    f"({'maxed' if _ira_contrib >= _IRA_MONTHLY_MAX - 0.5 else f'of ${_IRA_MONTHLY_MAX*12:,.0f} allowed'}). "
+                    f"[IRA overview](https://www.investopedia.com/terms/i/ira.asp)"
+                )
+                _step += 1
+
+            if _remaining > 0:
+                _sp_ira_contrib = min(_remaining, _IRA_MONTHLY_MAX)
+                _remaining     -= _sp_ira_contrib
+                _cascade_lines.append(
+                    f"**{_step}. Contribute ${_sp_ira_contrib:,.0f}/month to a spouse IRA** "
+                    f"→ ${_sp_ira_contrib * 12:,.0f}/yr "
+                    f"({'maxed' if _sp_ira_contrib >= _IRA_MONTHLY_MAX - 0.5 else f'of ${_IRA_MONTHLY_MAX*12:,.0f} allowed'})."
+                )
+                _step += 1
+
+            if _remaining > 0.50:
+                _cascade_lines.append(
+                    f"**{_step}. Invest the remaining ${_remaining:,.0f}/month in a taxable brokerage account.** "
+                    f"No contribution limits. Low-cost index funds work the same way here. "
+                    f"[Taxable brokerage overview](https://www.investopedia.com/terms/b/brokerageaccount.asp)"
+                )
+
+            st.success("\n\n".join(_cascade_lines))
+
+            if current_age >= 50:
+                st.caption(
+                    "Catch-up contribution limit applied (age 50+): $31,000/yr TSP employee limit for 2026. "
+                    "[IRS TSP limits](https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-contributions)"
+                )
+            else:
+                st.caption(
+                    "At age 50 your TSP limit increases to $31,000/yr. "
+                    "[IRS TSP limits](https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-contributions)"
+                )
+
         # ── Interactive Savings Rate Explorer ────────────────────────────────
         st.divider()
-        st.subheader("🎯 Savings Rate Explorer")
-        st.caption("Drag the slider to see how your savings rate affects your portfolio growth and the age at which you hit your goal. Uses your projected income schedule and expected real return.")
-        st.info("💡 **This is a what-if explorer.** Adjusting the slider here does not change your plan — it lets you explore tradeoffs between savings rate and retirement age before you commit. If a different rate or age looks better, go back and update your inputs above. The Luck & Timing Roulette simulation below always runs on your calculated savings rate.")
+        with st.expander("🎯 Want to see how your savings rate affects your timeline? → Savings Rate Explorer"):
+            st.caption("Drag the slider to see how your savings rate affects your portfolio growth and the age at which you hit your goal. Uses your projected income schedule and expected real return.")
+            st.info("💡 **This is a what-if explorer.** Adjusting the slider here does not change your plan — it lets you explore tradeoffs between savings rate and retirement age before you commit. If a different rate or age looks better, go back and update your inputs above. The Luck & Timing Roulette simulation below always runs on your calculated savings rate.")
 
-        explore_pct = st.slider(
-            "Savings Rate (% of Base Pay)",
-            min_value=0.0, max_value=60.0,
-            value=float(round(savings_pct * 100, 1)),
-            step=0.5,
-            key="explorer_slider"
-        )
-
-        # Build deterministic growth curve for the explorer rate
-        explore_rate = explore_pct / 100.0
-        monthly_real = (1 + expected_real_rate) ** (1/12) - 1
-
-        # Full income schedule (military + civilian phases)
-        full_income = list(base_pay_schedule)
-        for _ in range(total_months - len(base_pay_schedule)):
-            full_income.append(civilian_monthly)
-        full_income = full_income[:total_months]
-
-        # Simulate deterministic portfolio growth
-        balance = float(current_tsp)
-        ages = []
-        balances = []
-        goal_age = None
-
-        for m in range(total_months):
-            age_now = current_age + m / 12.0
-            contrib = explore_rate * full_income[m] if m < len(full_income) else 0.0
-            balance = balance * (1 + monthly_real) + contrib
-            ages.append(age_now)
-            balances.append(balance)
-            if goal_age is None and balance >= total_nest_egg_needed:
-                goal_age = age_now
-
-        # Build Plotly figure
-        import plotly.graph_objects as go_ret
-        fig_exp = go_ret.Figure()
-
-        # Growth curve
-        fig_exp.add_trace(go_ret.Scatter(
-            x=ages, y=balances,
-            mode='lines',
-            name='Portfolio Growth',
-            line=dict(color='#00b4d8', width=2.5),
-            hovertemplate='Age %{x:.1f}: $%{y:,.0f}<extra></extra>'
-        ))
-
-        # Horizontal dashed line — nest egg target
-        fig_exp.add_hline(
-            y=total_nest_egg_needed,
-            line_dash="dash", line_color="#ef476f", line_width=1.5,
-            annotation_text=f"Target: ${total_nest_egg_needed:,.0f}",
-            annotation_position="top left",
-            annotation_font_color="#ef476f"
-        )
-
-        # Vertical dashed line + annotation at intersection
-        if goal_age is not None and goal_age <= age_at_retire:
-            fig_exp.add_vline(
-                x=goal_age,
-                line_dash="dash", line_color="#06d6a0", line_width=1.5,
+            explore_pct = st.slider(
+                "Savings Rate (% of Base Pay)",
+                min_value=0.0, max_value=60.0,
+                value=float(round(savings_pct * 100, 1)),
+                step=0.5,
+                key="explorer_slider"
             )
-            fig_exp.add_annotation(
-                x=goal_age,
+
+            # Build deterministic growth curve for the explorer rate
+            explore_rate = explore_pct / 100.0
+            monthly_real = (1 + expected_real_rate) ** (1/12) - 1
+
+            # Full income schedule (military + civilian phases)
+            full_income = list(base_pay_schedule)
+            for _ in range(total_months - len(base_pay_schedule)):
+                full_income.append(civilian_monthly)
+            full_income = full_income[:total_months]
+
+            # Simulate deterministic portfolio growth
+            balance = float(current_tsp)
+            ages = []
+            balances = []
+            goal_age = None
+
+            for m in range(total_months):
+                age_now = current_age + m / 12.0
+                contrib = explore_rate * full_income[m] if m < len(full_income) else 0.0
+                balance = balance * (1 + monthly_real) + contrib
+                ages.append(age_now)
+                balances.append(balance)
+                if goal_age is None and balance >= total_nest_egg_needed:
+                    goal_age = age_now
+
+            # Build Plotly figure
+            import plotly.graph_objects as go_ret
+            fig_exp = go_ret.Figure()
+
+            # Growth curve
+            fig_exp.add_trace(go_ret.Scatter(
+                x=ages, y=balances,
+                mode='lines',
+                name='Portfolio Growth',
+                line=dict(color='#00b4d8', width=2.5),
+                hovertemplate='Age %{x:.1f}: $%{y:,.0f}<extra></extra>'
+            ))
+
+            # Horizontal dashed line — nest egg target
+            fig_exp.add_hline(
                 y=total_nest_egg_needed,
-                text=f"  Goal met at age {goal_age:.1f}",
-                showarrow=True,
-                arrowhead=2,
-                arrowcolor="#06d6a0",
-                font=dict(color="#06d6a0", size=12),
-                bgcolor="rgba(0,0,0,0.6)",
-                bordercolor="#06d6a0",
-                borderwidth=1,
-                ax=40, ay=-40
-            )
-        else:
-            fig_exp.add_annotation(
-                x=ages[len(ages)//2],
-                y=max(balances) * 0.5,
-                text="Goal not reached within timeframe — increase savings rate",
-                showarrow=False,
-                font=dict(color="#ef476f", size=12),
-                bgcolor="rgba(0,0,0,0.6)"
+                line_dash="dash", line_color="#ef476f", line_width=1.5,
+                annotation_text=f"Target: ${total_nest_egg_needed:,.0f}",
+                annotation_position="top left",
+                annotation_font_color="#ef476f"
             )
 
-        fig_exp.update_layout(
-            plot_bgcolor='#0e1117',
-            paper_bgcolor='#0e1117',
-            font=dict(color='#fafafa'),
-            height=350,
-            margin=dict(l=60, r=30, t=30, b=50),
-            xaxis=dict(
-                title='Age',
-                gridcolor='#2a2a3e',
-                zerolinecolor='#2a2a3e',
-            ),
-            yaxis=dict(
-                title='Portfolio Value ($)',
-                gridcolor='#2a2a3e',
-                zerolinecolor='#2a2a3e',
-                tickformat='$,.0f'
-            ),
-            legend=dict(
-                bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#fafafa')
-            ),
-            showlegend=True
-        )
+            # Vertical dashed line + annotation at intersection
+            if goal_age is not None and goal_age <= age_at_retire:
+                fig_exp.add_vline(
+                    x=goal_age,
+                    line_dash="dash", line_color="#06d6a0", line_width=1.5,
+                )
+                fig_exp.add_annotation(
+                    x=goal_age,
+                    y=total_nest_egg_needed,
+                    text=f"  Goal met at age {goal_age:.1f}",
+                    showarrow=True,
+                    arrowhead=2,
+                    arrowcolor="#06d6a0",
+                    font=dict(color="#06d6a0", size=12),
+                    bgcolor="rgba(0,0,0,0.6)",
+                    bordercolor="#06d6a0",
+                    borderwidth=1,
+                    ax=40, ay=-40
+                )
+            else:
+                fig_exp.add_annotation(
+                    x=ages[len(ages)//2],
+                    y=max(balances) * 0.5,
+                    text="Goal not reached within timeframe — increase savings rate",
+                    showarrow=False,
+                    font=dict(color="#ef476f", size=12),
+                    bgcolor="rgba(0,0,0,0.6)"
+                )
 
-        st.plotly_chart(fig_exp, use_container_width=True)
+            fig_exp.update_layout(
+                plot_bgcolor='#0e1117',
+                paper_bgcolor='#0e1117',
+                font=dict(color='#fafafa'),
+                height=350,
+                margin=dict(l=60, r=30, t=30, b=50),
+                xaxis=dict(
+                    title='Age',
+                    gridcolor='#2a2a3e',
+                    zerolinecolor='#2a2a3e',
+                ),
+                yaxis=dict(
+                    title='Portfolio Value ($)',
+                    gridcolor='#2a2a3e',
+                    zerolinecolor='#2a2a3e',
+                    tickformat='$,.0f'
+                ),
+                legend=dict(
+                    bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='#fafafa')
+                ),
+                showlegend=True
+            )
+
+            st.plotly_chart(fig_exp, use_container_width=True)
 
         # ── Luck & Timing Roulette (Parametric Monte Carlo) ──────────────────────
         # Draws fresh Normal(mu, sigma) returns each trial — no pool sampling.
