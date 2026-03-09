@@ -135,6 +135,7 @@ if "tab3_invested" not in st.session_state: st.session_state.tab3_invested = 0.0
 if "tab3_guilt_free" not in st.session_state: st.session_state.tab3_guilt_free = 0.0
 if "bah_manual" not in st.session_state: st.session_state.bah_manual = False
 if "les_tsp_actual" not in st.session_state: st.session_state.les_tsp_actual = 0.0
+if "fund_comparison_results" not in st.session_state: st.session_state.fund_comparison_results = None
 
 # ── Analytics State ───────────────────────────────────────────────────────────
 # Written to Google Sheets via log_session(). Logged either on PDF download or
@@ -934,6 +935,175 @@ with tab2:
     # Kept as a variable for clarity in the MC call below — do not re-enable without
     # rebuilding the MC to properly handle the lifecycle blend.
     use_lc = False
+
+    # ── Fund Comparison: What $500/month looks like across all funds ──────────
+    # Hardcoded educational visualization — ages 25–75, $500/mo, $0 starting.
+    # Runs once on first render and caches in session_state. Not tied to user inputs.
+    with st.expander("📊 Not sure which fund to pick? See what $500/month looks like across all funds →"):
+        st.markdown(
+            "This chart shows what a consistent **\\$500/month contribution starting at age 25** "
+            "looks like across each TSP fund through age 75 — using 1,000 simulated market scenarios per fund. "
+            "The solid line is the median outcome. The shaded band is the 10th–90th percentile range — "
+            "the spread is the risk. "
+            "**Click a fund in the legend to hide it. Double-click to isolate one.**"
+        )
+
+        if st.session_state.fund_comparison_results is None:
+            with st.spinner("Generating fund comparison..."):
+                _COMP_MONTHLY  = 500.0
+                _COMP_MONTHS   = 600          # ages 25–75
+                _COMP_TRIALS   = 1000
+                _FUNDS         = ['C', 'S', 'I', 'F', 'G']
+                _comp = {}
+                for _f in _FUNDS:
+                    _mu, _sig = FUND_MONTHLY_PARAMS[_f]
+                    _res = np.zeros((_COMP_TRIALS, _COMP_MONTHS + 1))
+                    for _t in range(_COMP_TRIALS):
+                        _bal  = 0.0
+                        _rets = np.random.normal(_mu, _sig, _COMP_MONTHS)
+                        for _i in range(_COMP_MONTHS):
+                            _bal = _bal * (1 + _rets[_i]) + _COMP_MONTHLY
+                            _res[_t, _i + 1] = _bal
+                    _comp[_f] = _res
+                st.session_state.fund_comparison_results = _comp
+
+        _comp_res = st.session_state.fund_comparison_results
+        _ages     = np.linspace(25, 75, 601)
+        _age65_i  = 480   # index of age 65 in the 601-point array (25 + 40*12 months)
+
+        _COLORS = {
+            'C': '#00b4d8',
+            'S': '#06d6a0',
+            'I': '#ffd166',
+            'F': '#ff9f1c',
+            'G': '#b5838d',
+        }
+        _LABELS = {
+            'C': 'C-Fund — S&P 500',
+            'S': 'S-Fund — Small Cap',
+            'I': 'I-Fund — International',
+            'F': 'F-Fund — Bonds',
+            'G': 'G-Fund — Gov Securities',
+        }
+
+        def _hex_rgba(hx, a):
+            h = hx.lstrip('#')
+            r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+            return f"rgba({r},{g},{b},{a})"
+
+        fig_cmp = go.Figure()
+
+        for _f in ['C', 'S', 'I', 'F', 'G']:
+            _res  = _comp_res[_f]
+            _col  = _COLORS[_f]
+            _lbl  = _LABELS[_f]
+            _p10  = np.percentile(_res, 10, axis=0)
+            _p50  = np.percentile(_res, 50, axis=0)
+            _p90  = np.percentile(_res, 90, axis=0)
+
+            # Upper band edge (invisible line, anchors the fill)
+            fig_cmp.add_trace(go.Scatter(
+                x=_ages, y=_p90,
+                mode='lines',
+                line=dict(width=0),
+                showlegend=False,
+                hoverinfo='skip',
+                legendgroup=_f,
+            ))
+            # Lower band edge + fill to upper
+            fig_cmp.add_trace(go.Scatter(
+                x=_ages, y=_p10,
+                mode='lines',
+                fill='tonexty',
+                fillcolor=_hex_rgba(_col, 0.12),
+                line=dict(width=0),
+                showlegend=False,
+                hoverinfo='skip',
+                legendgroup=_f,
+            ))
+            # Median line — this is the legend entry that toggles the whole group
+            fig_cmp.add_trace(go.Scatter(
+                x=_ages, y=_p50,
+                mode='lines',
+                name=_lbl,
+                line=dict(color=_col, width=2.5),
+                hoverinfo='skip',
+                legendgroup=_f,
+                legendgrouptitle_text=None,
+            ))
+            # Age-65 annotation
+            _med65 = _p50[_age65_i]
+            _label65 = f"${_med65/1e6:.2f}M" if _med65 >= 1e6 else f"${_med65:,.0f}"
+            fig_cmp.add_annotation(
+                x=65, y=_med65,
+                text=_label65,
+                showarrow=False,
+                font=dict(color=_col, size=9),
+                bgcolor="rgba(14,17,23,0.75)",
+                borderpad=2,
+                xanchor='left',
+                xshift=6,
+            )
+
+        # $1M target line
+        fig_cmp.add_hline(
+            y=1_000_000,
+            line_dash="dash",
+            line_color="#2dc653",
+            line_width=1.5,
+            annotation_text="  $1,000,000",
+            annotation_position="top left",
+            annotation_font_color="#2dc653",
+            annotation_font_size=10,
+        )
+        # Subtle vertical marker at age 65
+        fig_cmp.add_vline(
+            x=65,
+            line_dash="dot",
+            line_color="#444466",
+            line_width=1,
+        )
+
+        fig_cmp.update_layout(
+            plot_bgcolor='#0e1117',
+            paper_bgcolor='#0e1117',
+            font=dict(color='#fafafa'),
+            height=520,
+            hovermode=False,
+            margin=dict(l=60, r=40, t=20, b=60),
+            xaxis=dict(
+                title='Age',
+                range=[25, 75],
+                gridcolor='#2a2a3e',
+                zerolinecolor='#2a2a3e',
+                dtick=5,
+            ),
+            yaxis=dict(
+                title='Portfolio Value',
+                gridcolor='#2a2a3e',
+                zerolinecolor='#2a2a3e',
+                tickformat='$,.0f',
+            ),
+            legend=dict(
+                bgcolor='rgba(14,17,23,0.85)',
+                bordercolor='#2a2a3e',
+                borderwidth=1,
+                font=dict(color='#fafafa'),
+                orientation='h',
+                yanchor='bottom',
+                y=1.01,
+                xanchor='left',
+                x=0,
+            ),
+        )
+
+        st.plotly_chart(fig_cmp, use_container_width=True)
+        st.caption(
+            "**\\$500/month from age 25 · \\$0 starting balance · nominal returns · 1,000 trials per fund.** "
+            "Solid line = median. Shaded band = 10th–90th percentile range. "
+            "Annotations show median value at age 65. "
+            "Funds are modeled independently — real portfolios mix them."
+        )
 
     # Blended nominal & real return
     expected_nom       = get_blended_nominal_return(alloc_dict, years_to_grow)
@@ -2710,5 +2880,3 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
-
-
