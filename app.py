@@ -161,43 +161,18 @@ if "session_logged" not in st.session_state: st.session_state.session_logged = F
 if not st.session_state.consent_given:
     st.title("🎖️ F.I.R.E. for Effect")
     st.markdown("""
-**Before you go any further — a quick note from the developer.**
+There is no single tool that translates the most complex compensation structure in any employment sector into a clear answer to three questions every service member should be able to answer: what do I actually make, what do I need to save, and where does it go.
 
-This is the first app I've ever built. I think there's something genuinely useful here, but there's probably more wrong with it than right — and the only way I find that out is by seeing how people actually use it.
+This is an attempt to build that tool.
 
-So I'm asking your permission to collect some anonymous usage data while you're in the app.
+It'll ask for your rank, zip code, and some budget numbers. None of that leaves your device — there's no database, no account, no way to connect any of it to you.
 
-**What I collect:**
-- When you opened the app and how long you stayed
-- What tabs you visited and how far you got
-- Your duty station zip code (if you enter one)
-- Whether you're on a phone or computer
-- Whether you ran the Luck & Timing Roulette simulation, completed the financial quiz, or downloaded the PDF
-- Whether anything broke while you were using it
-
-**What I do NOT collect:**
-- Your name, email, rank, TIS, or SSN
-- Anything that could identify you personally
-- Any financial numbers you enter — those never leave your device
-
-**What this lets me do:**
-- See if people are using it or closing it immediately
-- Find where it breaks
-- Understand whether it's spreading or just being perpetually opened by my mom to be nice
-- Decide whether this is worth anything or just adding more trash to the pile
-
-**One more thing:** this is a test, so the link may be dead in a few weeks. If there's something worth saving, I'll build it back better.
+What I do collect, with your permission: anonymous usage data — which tabs you visit, whether the simulation runs, whether the PDF downloads, whether anything breaks. No names, no numbers, no PII. It helps me understand whether this is worth continuing to build.
     """)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("✅ Alright, Let's Do This.", type="primary", use_container_width=True):
-            st.session_state.consent_given = True
-            st.rerun()
-    with col2:
-        if st.button("❌ No thanks, close the tab.", use_container_width=True):
-            st.markdown("### No problem. Come back if you change your mind.")
-            st.stop()
+    if st.button("✅ Let's go.", type="primary", use_container_width=False):
+        st.session_state.consent_given = True
+        st.rerun()
     st.stop()
 
 # ==========================================
@@ -616,7 +591,7 @@ st.markdown("---")
 # to multipage refactor.
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "💰 What Do You Make?", "📈 How Much Do You Need to Save?", "💸 Where Does It Go?",
-    "🎯 Know the Game", "✅ The Way Ahead", "📬 Feedback", "📄 Your Plan"
+    "🎯 Know the Game", "✅ The Way Ahead", "📄 Your Plan", "📬 Feedback"
 ])
 
 # --- TAB 1: INCOME TRUTH ---
@@ -1747,16 +1722,10 @@ with tab3:
         st.metric("– TOT DED", f"${les_tot_ded:,.2f}")
         st.metric("– TOT ALMT",f"${les_tot_almt:,.2f}")
         st.metric("= EOM PAY", f"${max(0.0, eom_pay):,.2f}")
+        st.metric("💰 Monthly Take-Home", f"${mil_takehome:,.2f}")
 
-    # ── LES summary info or fallback ─────────────────────────────────────────
-    if "📋" in pay_mode:
-        st.info(
-            f"**Mid-Month Pay (${les_midmonth:,.2f}) + EOM Pay (${max(0.0,eom_pay):,.2f}) "
-            f"= Total Military Take-Home: ${mil_takehome:,.2f}/month.**\n\n"
-            f"Your LES EOM Pay is only the *second half* of your monthly pay — the mid-month deposit already "
-            f"hit your account on the 15th. Both deposits together are your actual military take-home."
-        )
-    else:
+    # ── LES fallback ──────────────────────────────────────────────────────────
+    if "📋" not in pay_mode:
         # Fallback values for 🎲 path — LES form was skipped
         les_midmonth = 0.0
         eom_pay      = 0.0
@@ -2647,103 +2616,491 @@ with tab4:
 with tab5:
     st.session_state.tabs_visited.add(5)
     st.session_state.max_tab_reached = max(st.session_state.max_tab_reached, 5)
-    st.header("Way Ahead: Your Financial Order of Operations")
-    st.write("Gamifying the classic financial order of operations. Expand each step, execute the mission, and check it off.")
+    st.header("The Financial Order of Operations")
+    st.write(
+        "Crawl, walk, run. Most people never fail because they made the wrong choice — "
+        "they fail because they never made one at all. These steps are in the right order for a reason. "
+        "Work them sequentially."
+    )
 
-    total_steps = 9
+    total_steps = 11
     steps_completed = sum([st.session_state.get(f"step_{i}", False) for i in range(1, total_steps + 1)])
     progress_pct = int((steps_completed / total_steps) * 100)
-    
+
     col_pct, col_bar = st.columns([1, 4])
     with col_pct:
-        st.metric("Mission Completion", f"{progress_pct}%", f"{steps_completed}/{total_steps} Steps")
+        st.metric("Progress", f"{progress_pct}%", f"{steps_completed}/{total_steps} steps")
     with col_bar:
-        st.write("") 
+        st.write("")
         st.write("")
         st.progress(steps_completed / total_steps)
-    
+
     if steps_completed == total_steps:
         st.balloons()
-        st.success("🎉 Outstanding! You have executed the order of operations, killed your toxic debt, and set your wealth generation on autopilot.")
-    
+        st.success("You've worked the whole list. The hard part is behind you — now you just let it run.")
+
     st.divider()
 
-    st.subheader("Phase 1: Stop the Bleeding (Immediate Action)")
-    with st.expander("1. Secure the BRS Match (Free Money)"):
-        st.markdown("""
-        * **The Mission:** If you are in the Blended Retirement System (BRS), the DoD matches up to 5% of your base pay. If you contribute 4%, you are taking a voluntary pay cut.
-        * **Action Steps:** Log into MyPay. Navigate to the "Traditional/Roth TSP" section. Set your contribution to a minimum of 5% (Roth is usually best for junior/mid-grade ranks due to tax-free allowances).
-        """)
-        st.checkbox("✅ I have secured my 5% BRS Match", key="step_1")
+    # ── CRAWL ─────────────────────────────────────────────────────────────────
+    st.subheader("🐛 Crawl — Do all four simultaneously")
 
-    with st.expander("2. The SCRA Debt Hack"):
-        st.markdown("""
-        * **The Mission:** The Servicemembers Civil Relief Act (SCRA) legally caps interest rates at 6% for any debt you acquired *before* entering active duty. 
-        * **Action Steps:** Identify pre-military credit cards, auto loans, or student loans. Call your lender's specific SCRA department. Submit a copy of your active-duty orders. They are legally required to drop the rate and backdate the refund.
-        """)
-        st.checkbox("✅ I have verified my SCRA eligibility and contacted lenders", key="step_2")
+    with st.expander("1. Get access to your money"):
+        st.markdown(
+            "Your CAC is your key to everything. Once you have it, get into "
+            "[MyPay](https://mypay.dfas.mil) — that's where your pay, TSP contributions, "
+            "and direct deposit all live. If you're in the BRS, set your TSP contribution "
+            "to at least 5% right now. The government matches it dollar for dollar up to that amount. "
+            "Every paycheck you delay is money you don't get back.\n\n"
+            "[How to change your TSP contribution](https://www.tsp.gov/making-contributions/start-change-stop-contributions/) · "
+            "[MyPay](https://mypay.dfas.mil)"
+        )
+        st.checkbox("I have MyPay access and my TSP is set to at least 5%", key="step_1")
 
-    with st.expander("3. Nuke Toxic Debt (The 24% APR Trap)"):
-        st.markdown("""
-        * **The Mission:** You cannot out-invest a 20% credit card or a predatory car loan from outside the gate. 
-        * **Action Steps:** Take the "Surplus" from your Tab 3 budget and route 100% of it toward your highest-interest debt. Use the Avalanche Method (mathematically optimal) or Snowball Method (psychological wins).
-        """)
-        st.checkbox("✅ I have a plan in place to eliminate all debt over 8% APR", key="step_3")
+    with st.expander("2. Open a high-yield savings account and get to $1,000"):
+        st.markdown(
+            "Don't put this in your checking account — keep it separate enough that you won't spend it, "
+            "and in an account that actually pays you interest. $1,000 is the only goal right now. "
+            "Not 3 months of expenses, not 6. Just $1,000. That's the buffer that keeps one bad week "
+            "from going on a credit card.\n\n"
+            "[Compare HYSA rates — NerdWallet](https://www.nerdwallet.com/best/banking/high-yield-online-savings-accounts)"
+        )
+        st.checkbox("I have an HYSA with at least $1,000 in it", key="step_2")
 
-    st.subheader("Phase 2: Build Financial Armor")
-    with st.expander("4. Escape the 0.01% Checking Account (HYSA)"):
-        st.markdown("""
-        * **The Mission:** Traditional banks pay you pennies while inflation eats your money. Keep your Emergency Fund in a Higher Yield Option for maximum accessibility *and* high interest (typically 4-5%).
-        * **Action Steps:** Open a High-Yield Savings Account (HYSA). Change your direct deposit on MyPay or set up an auto-transfer from your checking account to route your "Emergency Fund" savings directly to this account. Aim for 3-6 months of your Fixed Costs.
-        """)
-        st.checkbox("✅ My emergency fund is sitting in an HYSA", key="step_4")
+    with st.expander("3. Check your pre-service debt for SCRA protection"):
+        st.markdown(
+            "If you had loans or credit cards before you came on active duty, lenders are legally required "
+            "to cap your interest at 6%. Most won't do it unless you ask. Call them, tell them you're active duty, "
+            "and send a copy of your orders. If you've been overpaying, they owe you a refund.\n\n"
+            "[SCRA overview — DOJ](https://www.justice.gov/servicemembers) · "
+            "[File a complaint — CFPB](https://www.consumerfinance.gov/complaint/)"
+        )
+        st.checkbox("I have checked my pre-service debt for SCRA eligibility", key="step_3")
 
-    st.subheader("Phase 3: The Engine (Wealth Generation)")
-    with st.expander("5. Escape the G-Fund Trap"):
-        st.markdown("""
-        * **The Mission:** If you joined before 2018, your TSP defaulted into the G-Fund (Government Securities). It is hyper-conservative and barely beats inflation. 
-        * **Action Steps:** Move your investments into the C-Fund, S-Fund, I-Fund, or an L-Fund (Lifecycle) that matches your expected retirement year. 
-        """)
-        st.checkbox("✅ My TSP is out of the G-Fund and properly invested", key="step_5")
+    with st.expander("4. Kill high-interest debt"):
+        st.markdown(
+            "Nothing beats a 20% APR. Every dollar you put toward it is a guaranteed return — "
+            "there is no investment that reliably clears that bar. Use the "
+            "[Avalanche method](https://www.investopedia.com/terms/d/debt-avalanche.asp) "
+            "(highest rate first, mathematically optimal) or the "
+            "[Snowball method](https://www.investopedia.com/terms/d/debt-snowball.asp) "
+            "(smallest balance first, psychological wins). Either works. Pick one and don't stop.\n\n"
+            "[See what minimum payments actually cost you — Bankrate](https://www.bankrate.com/calculators/credit-cards/minimum-payment-calculator.aspx)"
+        )
+        st.checkbox("I have a plan to eliminate all debt above 8% APR", key="step_4")
 
-    with st.expander("6. Automate the 'Retirement Gap'"):
-        st.markdown("""
-        * **The Mission:** Tab 2 showed you exactly how much extra you need to invest monthly to hit your FIRE number. Willpower fails; automation doesn't.
-        * **Action Steps:** 1. Increase your TSP contributions to the percentage that will meet your monthly retirement goals. 
-            2. **Crucial TSP Step:** Log into TSP.gov. You must change your **Contribution Allocation** (where *new* money from your paycheck goes) AND conduct an **Interfund Transfer** (moving the *existing* money already in your account) into your desired funds. 
-            3. Alternatively, or if you are on track to max out your TSP entirely, open a Roth IRA. Set up an auto-draft from your checking account on the 1st of every month to fund it.
-        """)
-        st.checkbox("✅ My required monthly investments are fully automated", key="step_6")
+    st.divider()
 
-    st.subheader("Phase 4: Military Cheat Codes")
-    with st.expander("7. The GI Bill Transfer Trap"):
-        st.markdown("""
-        * **The Mission:** You cannot transfer the Post-9/11 GI Bill to your spouse or kids as a retirement gift. You must have at least 6 years of service AND commit to serving 4 more years from the date of transfer. You must also have 100% GI Bill eligibility — and this is where many officers get caught off guard. If you commissioned from West Point, your 5-year ADSO does not count toward that eligibility clock, meaning you won't hit 100% until year 8 of total service. ROTC scholarship officers reach it at year 7. OCS and non-scholarship ROTC officers reach it at year 3. Know which category you're in.
-        * **Action Steps:** The exact day you meet both requirements — 6 years of service AND 100% eligibility — log into MilConnect and initiate the transfer. If you wait until you are 18 years in, you will be forced to serve until 22 years to keep the benefit.
-        """)
-        st.checkbox("✅ I have transferred my GI Bill (Or decided not to)", key="step_7")
+    # ── WALK ──────────────────────────────────────────────────────────────────
+    st.subheader("🚶 Walk — In order")
 
-    with st.expander("8. The Deployment Multiplier (SDP)"):
-        st.markdown("""
-        * **The Mission:** If you deploy to a combat zone, the military offers the Savings Deposit Program (SDP), which guarantees a massive 10% annual return on up to $10,000.
-        * **Action Steps:** Once you are in theater for 30 days, go to the local finance office (or set it up via MyPay) and max this out before investing another dime in the stock market.
-        """)
-        st.checkbox("✅ I am aware of the SDP and will use it if deployed", key="step_8")
+    with st.expander("5. Build the real emergency fund"):
+        st.markdown(
+            "Now bring your buffer up to 3–6 months of actual living expenses, in the same HYSA. "
+            "This is what keeps a bad month from becoming a bad year — a job transition, a medical bill, "
+            "a car that dies. Once it's funded, leave it alone.\n\n"
+            "[Emergency fund guidance — Military OneSource](https://www.militaryonesource.mil/financial-legal/personal-finance/building-emergency-savings/)"
+        )
+        st.checkbox("My HYSA holds 3–6 months of living expenses", key="step_5")
 
-    with st.expander("9. VA Loan & The 'Funding Fee' Waiver"):
-        st.markdown("""
-        * **The Mission:** The VA loan allows 0% down, but it charges a "Funding Fee" (up to 3.3% of the loan amount). However, if you have a service-connected disability rating of just **10%**, that fee is completely waived—saving you thousands at closing.
-        * **Action Steps:** Go to medical. Document your back, your knees, and your tinnitus *now*. When you separate, file your BDD (Benefits Delivery at Discharge) claim 180 days out.
-        """)
-        st.checkbox("✅ I am documenting my medical records for my BDD claim", key="step_9")
+    with st.expander("6. Check where your TSP money is actually invested"):
+        st.markdown(
+            "If you joined before 2018 your TSP defaulted into the G-Fund — it barely beats inflation. "
+            "On [TSP.gov](https://www.tsp.gov) you need to do two separate things: change your "
+            "**Contribution Allocation** (where new money goes) and submit an **Interfund Transfer** "
+            "(where your existing balance sits). Most people only do one. Both matter.\n\n"
+            "[How to change your TSP allocation](https://www.tsp.gov/fund-performance/interfund-transfers.html) · "
+            "[TSP Fund information](https://www.tsp.gov/funds-individual/)"
+        )
+        st.checkbox("My TSP allocation is set intentionally — not defaulted", key="step_6")
 
-# --- TAB 6: FEEDBACK & AAR ---
+    with st.expander("7. Set your savings rate and automate it"):
+        st.markdown(
+            "Tab 2 gave you a percentage. Put that number into [MyPay](https://mypay.dfas.mil) and don't touch it. "
+            "If your required savings will exceed the TSP annual limit, Tab 2 showed you where the overflow goes — "
+            "IRA first, then brokerage. The point is that it happens automatically. "
+            "Not when you remember. Not when the market looks good. Every month, without you.\n\n"
+            "[MyPay](https://mypay.dfas.mil) · "
+            "[Roth IRA overview — Investopedia](https://www.investopedia.com/terms/r/rothira.asp)"
+        )
+        st.checkbox("My savings rate is set in MyPay and automated", key="step_7")
+
+    st.divider()
+
+    # ── RUN ───────────────────────────────────────────────────────────────────
+    st.subheader("🏃 Run — Once the walk phase is solid")
+
+    with st.expander("8. Get your paperwork right"):
+        st.markdown(
+            "JAG will do a will and power of attorney for free — use it. "
+            "Update your SGLI beneficiary through [milConnect](https://milconnect.dmdc.osd.mil). "
+            "Set your TSP beneficiary separately on [TSP.gov](https://www.tsp.gov/account-basics/designate-beneficiaries/) — "
+            "it's a different form and most people never fill it out. "
+            "These take less than an hour and protect everything else you're building."
+        )
+        st.checkbox("Will, POA, SGLI beneficiary, and TSP beneficiary are all current", key="step_8")
+
+    with st.expander("9. Know your GI Bill transfer window"):
+        st.markdown(
+            "You can transfer the Post-9/11 GI Bill to a dependent at 6 years of service, "
+            "but you have to commit to 4 more years from the transfer date. "
+            "Academy grads don't reach full eligibility until year 8. "
+            "If you wait until year 18 you'll owe until year 22. "
+            "Know your number, decide whether you want to transfer it, and put a calendar reminder "
+            "on the exact date you become eligible — don't rely on someone telling you.\n\n"
+            "[Transfer your GI Bill — VA](https://www.va.gov/education/transfer-post-9-11-gi-bill-benefits/)"
+        )
+        st.checkbox("I know my GI Bill transfer eligibility date and have made a decision", key="step_9")
+
+    with st.expander("10. Understand your VA benefits"):
+        st.markdown(
+            "You earned these. Make sure you know what you're entitled to before you separate — "
+            "healthcare, disability, home loan, education. The window to document and file doesn't stay open forever. "
+            "A Benefits Delivery at Discharge (BDD) claim filed 180 days before separation gives you "
+            "the best chance of a smooth transition.\n\n"
+            "[VA benefits overview](https://www.va.gov/benefits/) · "
+            "[BDD claim information](https://www.va.gov/disability/how-to-file-claim/when-to-file/pre-discharge-claim/)"
+        )
+        st.checkbox("I understand my VA benefits and have a plan for separation", key="step_10")
+
+    with st.expander("11. Build beyond the plan"):
+        st.markdown(
+            "You've automated retirement, cleared the debt, funded the emergency account, "
+            "and sorted the military-specific stuff. Now decide what's next.\n\n"
+            "**Retire earlier or richer** — max your TSP and IRA fully, then keep going. "
+            "The math compounds faster than most people expect once the foundation is solid. "
+            "[r/financialindependence](https://www.reddit.com/r/financialindependence) · "
+            "[r/fatFIRE](https://www.reddit.com/r/fatFIRE)\n\n"
+            "**Real estate** — the VA loan gives you an entry point most civilians don't have, "
+            "including the option to buy a small multi-family property and live in one unit. "
+            "It's not passive, but it builds wealth. "
+            "[BiggerPockets](https://www.biggerpockets.com)\n\n"
+            "**Starting a business** — high risk, real upside. Free resources exist specifically for veterans. "
+            "[SBA Boots to Business](https://sbavets.force.com/s/) · "
+            "[VA Small Business Resources](https://www.sba.gov/business-guide/grow-your-business/veteran-owned-businesses)\n\n"
+            "**Goal-based saving** — car, kids, college, whatever matters to you. "
+            "Once the foundation is built, saving for specific things is just a matter of opening "
+            "separate accounts and automating contributions. "
+            "[r/personalfinance flowchart](https://www.reddit.com/r/personalfinance/wiki/commontopics)"
+        )
+        st.checkbox("I have thought about what comes next and have a direction", key="step_11")
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TAB 6: YOUR PLAN / PDF
+# Page 1: Income snapshot, retirement targets, Monte Carlo chart (if run),
+#          budget summary, budget bar chart.
+# Page 2: Financial order of operations checklist (11 steps, crawl/walk/run).
+# All data pulled from session_state. No way_forward paragraph.
+# PDF generated in-memory with fpdf2 + matplotlib. No temp files written.
+# ════════════════════════════════════════════════════════════════════════════════
+# --- TAB 6: MY FINANCIAL PLAN (PDF) ---
 with tab6:
     st.session_state.tabs_visited.add(6)
     st.session_state.max_tab_reached = max(st.session_state.max_tab_reached, 6)
+    st.header("📄 Your Plan")
+    st.caption("Your numbers and your checklist — one PDF. Download it, share it, or just keep it somewhere you'll look at it.")
+
+    # ── Check what data is available ─────────────────────────────────────────
+    missing = []
+    if st.session_state.get("base_pay", 0.0) == 0.0:
+        missing.append("**Tab 1** — complete your rank, TIS, and zip code")
+    if st.session_state.get("pmt_target", 0.0) == 0.0:
+        missing.append("**Tab 2** — complete your career inputs and fund allocation")
+    if st.session_state.get("tab3_take_home", 0.0) == 0.0:
+        missing.append("**Tab 3** — enter your take-home pay and budget")
+
+    if missing:
+        st.warning("Complete the following before generating your plan:\n\n" +
+                   "\n".join(f"- {m}" for m in missing))
+    else:
+        # ── Pull data from session state ──────────────────────────────────────
+        base_pay      = st.session_state.get("base_pay", 0.0)
+        bah_amt       = st.session_state.get("bah_amt", 0.0)
+        bas_amt       = st.session_state.get("bas_amt", 0.0)
+        special_pay   = st.session_state.get("special_pay", 0.0)
+        gross_monthly = base_pay + bah_amt + bas_amt + special_pay
+
+        savings_rate  = st.session_state.get("savings_rate_pct", 0.0)
+        nest_egg      = st.session_state.get("nest_egg_target", 0.0)
+        est_pension   = st.session_state.get("est_pension", 0.0)
+        pmt_target    = st.session_state.get("pmt_target", 0.0)
+
+        take_home     = st.session_state.get("tab3_take_home", 0.0)
+        fixed_costs   = st.session_state.get("tab3_fixed", 0.0)
+        invested      = st.session_state.get("tab3_invested", 0.0)
+        guilt_free    = st.session_state.get("tab3_guilt_free", 0.0)
+        surplus       = take_home - fixed_costs - invested - guilt_free
+
+        mc_results    = st.session_state.get("sim_results", None)
+        mc_age_start  = st.session_state.get("sim_current_age", 0)
+        mc_age_end    = st.session_state.get("sim_age_at_retire", 0)
+        mc_target     = st.session_state.get("sim_target", 0.0)
+        mc_rate       = st.session_state.get("sim_savings_pct", 0.0)
+
+        # ── On-screen preview ─────────────────────────────────────────────────
+        st.subheader("Snapshot")
+        col_a, col_b, col_c = st.columns(3)
+        with col_a:
+            st.markdown("**Income**")
+            st.metric("Monthly Gross",  f"${gross_monthly:,.0f}")
+            st.metric("Base Pay",       f"${base_pay:,.0f}")
+            st.metric("BAH",            f"${bah_amt:,.0f}")
+            st.metric("BAS",            f"${bas_amt:,.0f}")
+        with col_b:
+            st.markdown("**Retirement**")
+            st.metric("Est. Monthly Pension",   f"${est_pension:,.0f}")
+            st.metric("Target Nest Egg",        f"${nest_egg:,.0f}")
+            st.metric("Required Savings Rate",  f"{savings_rate*100:.1f}% of Base Pay" if savings_rate else "—")
+            if mc_results is not None:
+                mc_success = st.session_state.get("mc_success_rate", None)
+                if mc_success is not None:
+                    st.metric("Simulation Success Rate", f"{mc_success:.0f}%")
+        with col_c:
+            st.markdown("**Budget**")
+            st.metric("Take-Home",  f"${take_home:,.0f}")
+            st.metric("Fixed",      f"${fixed_costs:,.0f}")
+            st.metric("Invested",   f"${invested:,.0f}")
+            delta_color = "normal" if surplus >= 0 else "inverse"
+            st.metric("Surplus / Deficit", f"${surplus:,.0f}",
+                      delta="On track" if surplus >= 0 else "Needs attention",
+                      delta_color=delta_color)
+
+        st.divider()
+
+        # ── PDF generation ────────────────────────────────────────────────────
+        if st.button("📥 Generate & Download PDF", type="primary"):
+            st.session_state.pdf_downloaded = True
+            if not st.session_state.session_logged:
+                st.session_state.session_logged = True
+                log_session()
+
+            from fpdf import FPDF
+            import datetime
+            import io
+
+            pdf = FPDF()
+            pdf.set_margins(15, 15, 15)
+
+            def safe(text):
+                return (str(text)
+                    .replace('\u2014', '-').replace('\u2013', '-')
+                    .replace('\u2190', '<-').replace('\u2192', '->')
+                    .replace('\u2019', "'").replace('\u2018', "'")
+                    .replace('\u201c', '"').replace('\u201d', '"')
+                    .replace('\u2026', '...')
+                )
+
+            def page_header():
+                pdf.set_font("Helvetica", "B", 14)
+                pdf.set_fill_color(30, 60, 114)
+                pdf.set_text_color(255, 255, 255)
+                pdf.cell(0, 10, safe("F.I.R.E. for Effect  —  Financial Plan"), fill=True, ln=True, align="C")
+                pdf.set_text_color(0, 0, 0)
+                pdf.set_font("Helvetica", "", 8)
+                pdf.cell(0, 5, safe(f"Generated {datetime.date.today().strftime('%B %d, %Y')}  |  For planning purposes only — not financial advice."), ln=True, align="C")
+                pdf.ln(3)
+
+            def section_header(title):
+                pdf.set_font("Helvetica", "B", 10)
+                pdf.set_fill_color(220, 230, 245)
+                pdf.set_text_color(30, 60, 114)
+                pdf.cell(0, 6, safe(f"  {title}"), fill=True, ln=True)
+                pdf.set_text_color(0, 0, 0)
+                pdf.ln(1)
+
+            def row(label, value):
+                pdf.set_font("Helvetica", "B", 9)
+                pdf.cell(90, 5, safe(f"    {label}"), ln=False)
+                pdf.set_font("Helvetica", "", 9)
+                pdf.cell(0, 5, safe(value), ln=True)
+
+            # ── PAGE 1 ────────────────────────────────────────────────────────
+            pdf.add_page()
+            page_header()
+
+            # Income
+            section_header("INCOME SNAPSHOT")
+            row("Monthly Gross Pay:", f"${gross_monthly:,.0f}")
+            row("Base Pay:", f"${base_pay:,.0f}")
+            row("BAH (Tax-Free):", f"${bah_amt:,.0f}")
+            row("BAS (Tax-Free):", f"${bas_amt:,.0f}")
+            row("Special Pays:", f"${special_pay:,.0f}")
+            pdf.ln(3)
+
+            # Retirement
+            section_header("RETIREMENT TARGETS")
+            row("Estimated Monthly Pension:", f"${est_pension:,.0f}  (High-3 Average)")
+            row("Target Nest Egg:", f"${nest_egg:,.0f}")
+            row("Required Savings Rate:",
+                f"{savings_rate*100:.1f}% of base pay  —  set in MyPay (mypay.dfas.mil)" if savings_rate else "N/A")
+            pdf.ln(3)
+
+            # Monte Carlo chart — only if simulation was run
+            if mc_results is not None and mc_age_end > mc_age_start:
+                _time = np.linspace(mc_age_start, mc_age_end, mc_results.shape[1])
+                _p10  = np.percentile(mc_results, 10, axis=0)
+                _p50  = np.percentile(mc_results, 50, axis=0)
+                _p90  = np.percentile(mc_results, 90, axis=0)
+
+                _mc_fig, _mc_ax = plt.subplots(figsize=(7.2, 2.8))
+                _mc_fig.patch.set_facecolor('white')
+                _mc_ax.set_facecolor('white')
+                _mc_ax.fill_between(_time, _p10, _p90, color='#00b4d8', alpha=0.15, label='10th–90th percentile')
+                _mc_ax.plot(_time, _p50, color='#00b4d8', lw=2, label=f'Median  (saving {mc_rate*100:.1f}% of base pay)')
+                _mc_ax.axhline(y=mc_target, color='#ef476f', linestyle='--', lw=1.5, label=f'Target: ${mc_target:,.0f}')
+                _mc_ax.set_xlabel('Age', fontsize=8)
+                _mc_ax.set_ylabel('Portfolio Value', fontsize=8)
+                _mc_ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'${x/1e6:.1f}M' if x >= 1e6 else f'${int(x):,}'))
+                _mc_ax.tick_params(labelsize=7)
+                _mc_ax.legend(fontsize=7, loc='upper left')
+                _mc_ax.spines['top'].set_visible(False)
+                _mc_ax.spines['right'].set_visible(False)
+                _mc_ax.grid(True, linestyle='--', alpha=0.3)
+                _mc_fig.tight_layout()
+
+                _mc_buf = io.BytesIO()
+                _mc_fig.savefig(_mc_buf, format='png', dpi=150, bbox_inches='tight')
+                plt.close(_mc_fig)
+                _mc_buf.seek(0)
+
+                pdf.set_font("Helvetica", "I", 8)
+                pdf.set_text_color(80, 80, 80)
+                pdf.cell(0, 5, "Luck & Timing Roulette — 1,000 simulated market scenarios", ln=True)
+                pdf.set_text_color(0, 0, 0)
+                pdf.image(_mc_buf, x=15, w=180)
+                pdf.ln(2)
+
+            # Budget summary
+            section_header("MONTHLY BUDGET SUMMARY")
+            row("Take-Home Pay:", f"${take_home:,.0f}")
+            row("Fixed Costs:", f"${fixed_costs:,.0f}")
+            row("Investments / Savings:", f"${invested:,.0f}")
+            row("Guilt-Free Spending:", f"${guilt_free:,.0f}")
+            _status = "SURPLUS" if surplus >= 0 else "DEFICIT"
+            row(f"Budget {_status}:", f"${abs(surplus):,.0f} / month")
+            pdf.ln(3)
+
+            # Budget bar chart
+            if take_home > 0:
+                _surplus_plot = max(0.0, surplus)
+                _vals   = [fixed_costs, invested, guilt_free, _surplus_plot]
+                _labels = ['Fixed', 'Invested', 'Guilt-Free', 'Surplus']
+                _colors = ['#ef476f', '#00b4d8', '#ffd166', '#06d6a0']
+                _total  = sum(_vals) if sum(_vals) > 0 else 1
+
+                _bar_fig, _bar_ax = plt.subplots(figsize=(7.2, 0.9))
+                _bar_fig.patch.set_facecolor('white')
+                _bar_ax.set_facecolor('white')
+                _left = 0
+                for _v, _lbl, _c in zip(_vals, _labels, _colors):
+                    if _v > 0:
+                        _bar_ax.barh(0, _v / _total, left=_left / _total,
+                                     color=_c, height=0.5, label=f"{_lbl} ${_v:,.0f}")
+                        _left += _v
+                _bar_ax.set_xlim(0, 1)
+                _bar_ax.axis('off')
+                _bar_ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
+                               ncol=4, fontsize=7, frameon=False)
+                if surplus < 0:
+                    _bar_ax.set_title(f"Budget deficit: ${abs(surplus):,.0f}/month", fontsize=8, color='#ef476f')
+                _bar_fig.tight_layout()
+
+                _bar_buf = io.BytesIO()
+                _bar_fig.savefig(_bar_buf, format='png', dpi=150, bbox_inches='tight')
+                plt.close(_bar_fig)
+                _bar_buf.seek(0)
+                pdf.image(_bar_buf, x=15, w=180)
+                pdf.ln(2)
+
+            # Disclaimer bottom of page 1
+            pdf.set_font("Helvetica", "I", 7)
+            pdf.set_text_color(140, 140, 140)
+            pdf.multi_cell(180, 4, safe(
+                "Projections use primary-zone promotion timelines, historical TSP fund return averages, "
+                "and a 4% safe withdrawal rate. Actual results will vary. "
+                "Consult a Certified Financial Planner for personalized advice."))
+            pdf.set_text_color(0, 0, 0)
+
+            # ── PAGE 2 — CHECKLIST ────────────────────────────────────────────
+            pdf.add_page()
+            page_header()
+
+            section_header("YOUR FINANCIAL ORDER OF OPERATIONS")
+            pdf.set_font("Helvetica", "", 8)
+            pdf.set_text_color(80, 80, 80)
+            pdf.cell(0, 5, "Crawl, walk, run. Work these in order.", ln=True)
+            pdf.set_text_color(0, 0, 0)
+            pdf.ln(2)
+
+            _BOX  = 4    # checkbox square size
+            _LH   = 6    # line height
+            _IND  = 22   # text indent from left margin
+
+            def checklist_group(title):
+                pdf.set_font("Helvetica", "B", 9)
+                pdf.set_fill_color(235, 240, 250)
+                pdf.set_text_color(30, 60, 114)
+                pdf.cell(0, 6, safe(f"  {title}"), fill=True, ln=True)
+                pdf.set_text_color(0, 0, 0)
+                pdf.ln(1)
+
+            def checklist_item(text, link=None):
+                # Draw checkbox
+                _y = pdf.get_y()
+                pdf.set_draw_color(100, 100, 100)
+                pdf.rect(15, _y + 1, _BOX, _BOX)
+                # Item text
+                pdf.set_font("Helvetica", "", 8.5)
+                pdf.set_xy(_IND, _y)
+                if link:
+                    full = f"{text}  {link}"
+                else:
+                    full = text
+                pdf.multi_cell(180 - (_IND - 15), _LH, safe(full))
+                pdf.ln(0.5)
+
+            checklist_group("CRAWL — Do all four simultaneously")
+            checklist_item("Get CAC access, log into MyPay, set TSP to at least 5%", "mypay.dfas.mil")
+            checklist_item("Open a high-yield savings account and get to $1,000")
+            checklist_item("Check pre-service debt for SCRA interest rate protection", "justice.gov/servicemembers")
+            checklist_item("Kill high-interest debt — Avalanche or Snowball, pick one and commit")
+            pdf.ln(2)
+
+            checklist_group("WALK — In order")
+            checklist_item("Build the full emergency fund — 3 to 6 months of expenses in your HYSA")
+            checklist_item("Check TSP fund allocation — Contribution Allocation AND Interfund Transfer", "tsp.gov")
+            checklist_item("Set your savings rate in MyPay and automate it", "mypay.dfas.mil")
+            pdf.ln(2)
+
+            checklist_group("RUN — Once the walk phase is solid")
+            checklist_item("Get your paperwork right — JAG will, POA, SGLI beneficiary, TSP beneficiary", "milconnect.dmdc.osd.mil")
+            checklist_item("Know your GI Bill transfer eligibility date — decide and set a calendar reminder", "va.gov/education/transfer-post-9-11-gi-bill-benefits")
+            checklist_item("Understand your VA benefits before you separate", "va.gov/benefits")
+            checklist_item("Build beyond the plan — max retirement accounts, real estate, goal-based saving", "reddit.com/r/financialindependence")
+            pdf.ln(4)
+
+            pdf.set_font("Helvetica", "I", 7)
+            pdf.set_text_color(140, 140, 140)
+            pdf.multi_cell(180, 4, safe(
+                "This document is for educational purposes only and does not constitute financial advice. "
+                "F.I.R.E. for Effect — fireforeffect.app"))
+
+            # ── Output ────────────────────────────────────────────────────────
+            pdf_bytes = pdf.output()
+            st.download_button(
+                label="⬇️ Download Your Financial Plan (PDF)",
+                data=bytes(pdf_bytes),
+                file_name=f"fire_for_effect_{datetime.date.today()}.pdf",
+                mime="application/pdf"
+            )
+            st.success("✅ PDF ready — click above to download.")
+
+# --- TAB 7: FEEDBACK ---
+with tab7:
+    st.session_state.tabs_visited.add(7)
+    st.session_state.max_tab_reached = max(st.session_state.max_tab_reached, 7)
     st.header("Feedback")
     st.write("Got a question? Found a bug? Want a new feature? Drop it below.")
-    
+
     contact_form = """
     <form action="https://formsubmit.co/ian.moss@nps.edu" method="POST">
         <input type="hidden" name="_captcha" value="false">
@@ -2755,219 +3112,6 @@ with tab6:
     </form>
     """
     st.markdown(contact_form, unsafe_allow_html=True)
-
-# ════════════════════════════════════════════════════════════════════════════════
-# TAB 7: YOUR PLAN / PDF
-# Reads from session_state values set by Tabs 1, 2, and 3.
-# "missing" list gates PDF generation — all three prior tabs must be completed.
-# PDF generated in-memory with fpdf2. No temp files written to disk.
-# way_forward text is also shown on-screen and included in the PDF.
-# ════════════════════════════════════════════════════════════════════════════════
-# --- TAB 7: MY FINANCIAL PLAN (PDF) ---
-with tab7:
-    st.session_state.tabs_visited.add(7)
-    st.session_state.max_tab_reached = max(st.session_state.max_tab_reached, 7)
-    st.header("📄 Your Plan")
-    st.caption("A snapshot of your numbers from each tab — income, retirement targets, and budget. Download it as a PDF to keep, share, or brief your spouse.")
-
-    # ── Check what data is available ─────────────────────────────────────────
-    missing = []
-    if st.session_state.get("base_pay", 0.0) == 0.0:
-        missing.append("**What You Make** — complete your rank, TIS, and zip code")
-    if st.session_state.get("pmt_target", 0.0) == 0.0:
-        missing.append("**Retirement Goal Setting** — complete your career inputs and fund allocation")
-    tab3_take_home = st.session_state.get("tab3_take_home", 0.0)
-    if tab3_take_home == 0.0:
-        missing.append("**Where Does It Go?** — enter your take-home pay")
-
-    if missing:
-        st.warning(
-            "Complete the following tabs before generating your plan:\n\n" +
-            "\n".join(f"- {m}" for m in missing)
-        )
-    else:
-        # ── Pull data from session state ──────────────────────────────────────
-        base_pay      = st.session_state.get("base_pay", 0.0)
-        bah_amt       = st.session_state.get("bah_amt", 0.0)
-        bas_amt       = st.session_state.get("bas_amt", 0.0)
-        special_pay   = st.session_state.get("special_pay", 0.0)
-        gross_monthly = base_pay + bah_amt + bas_amt + special_pay
-
-        pmt_target    = st.session_state.get("pmt_target", 0.0)
-        savings_rate  = st.session_state.get("savings_rate_pct", 0.0)
-        nest_egg      = st.session_state.get("nest_egg_target", 0.0)
-        est_pension   = st.session_state.get("est_pension", 0.0)
-        success_prob  = st.session_state.get("mc_success_rate", None)
-
-        take_home     = st.session_state.get("tab3_take_home", 0.0)
-        fixed_costs   = st.session_state.get("tab3_fixed", 0.0)
-        invested      = st.session_state.get("tab3_invested", 0.0)
-        guilt_free    = st.session_state.get("tab3_guilt_free", 0.0)
-        surplus       = take_home - fixed_costs - invested - guilt_free
-
-        on_track = surplus >= 0 and invested >= pmt_target * 0.9
-
-        if on_track:
-            way_forward = (
-                f"Based on your numbers, you're in a strong position. Your budget has a ${surplus:,.0f}/month "
-                f"surplus and your investments are on pace. Set your TSP contribution to {savings_rate*100:.1f}% "
-                f"of base pay in MyPay and leave it alone. Every promotion is an opportunity to increase your "
-                f"contribution rate — not your spending. You're automated and ready to roll."
-            )
-            st.success(way_forward)
-        else:
-            shortfall = max(0, pmt_target - invested)
-            way_forward = (
-                f"Your numbers show there's work to do — your budget is "
-                f"{'in deficit by $' + f'{abs(surplus):,.0f}/month' if surplus < 0 else 'tight'} "
-                f"and your investments are ${shortfall:,.0f}/month short of your goal. "
-                "Start with the BRS match, eliminate high-interest debt, then automate your savings rate. "
-                "Small adjustments now compound significantly over a career."
-            )
-            st.warning(way_forward)
-
-        # ── PDF button at top ─────────────────────────────────────────────────
-        if st.button("📥 Generate & Download PDF", type="primary"):
-            st.session_state.pdf_downloaded = True
-            if not st.session_state.session_logged:
-                st.session_state.session_logged = True
-                log_session()
-            from fpdf import FPDF
-            import datetime
-
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_margins(15, 15, 15)
-
-            def safe(text):
-                return (text
-                    .replace('\u2014', '-').replace('\u2013', '-')
-                    .replace('\u2190', '<-').replace('\u2192', '->')
-                    .replace('\u2019', "'").replace('\u2018', "'")
-                    .replace('\u201c', '"').replace('\u201d', '"')
-                    .replace('\u2026', '...')
-                )
-
-            pdf.set_font("Helvetica", "B", 18)
-            pdf.set_fill_color(30, 60, 114)
-            pdf.set_text_color(255, 255, 255)
-            pdf.cell(0, 12, safe("F.I.R.E. for Effect - Your Financial Plan"), fill=True, ln=True, align="C")
-            pdf.set_text_color(0, 0, 0)
-            pdf.set_font("Helvetica", "", 9)
-            pdf.cell(0, 6, safe(f"Generated {datetime.date.today().strftime('%B %d, %Y')}  |  For planning purposes only - not financial advice."), ln=True, align="C")
-            pdf.ln(4)
-
-            def section_header(title):
-                pdf.set_font("Helvetica", "B", 11)
-                pdf.set_fill_color(220, 230, 245)
-                pdf.cell(0, 7, safe(f"  {title}"), fill=True, ln=True)
-                pdf.ln(1)
-
-            def row(label, value, indent=4):
-                pdf.set_font("Helvetica", "B", 9)
-                pdf.cell(80, 6, safe(" " * indent + label), ln=False)
-                pdf.set_font("Helvetica", "", 9)
-                pdf.cell(0, 6, safe(value), ln=True)
-
-            section_header("INCOME SNAPSHOT")
-            row("Monthly Gross Pay:", f"${gross_monthly:,.0f}")
-            row("  Base Pay:", f"${base_pay:,.0f}")
-            row("  BAH (Tax-Free):", f"${bah_amt:,.0f}")
-            row("  BAS (Tax-Free):", f"${bas_amt:,.0f}")
-            row("  Special Pays:", f"${special_pay:,.0f}")
-            pdf.ln(2)
-
-            section_header("RETIREMENT TARGETS")
-            row("Estimated Monthly Pension:", f"${est_pension:,.0f}  (High-3 Average)")
-            row("Target Nest Egg:", f"${nest_egg:,.0f}")
-            row("Required Savings Rate:", f"{savings_rate*100:.1f}% of Base Pay  <- Set this in MyPay" if savings_rate else "N/A")
-            if success_prob is not None:
-                row("Luck & Timing Roulette — Probability of Success:", f"{success_prob:.0f}%")
-            pdf.ln(2)
-
-            section_header("MONTHLY BUDGET SUMMARY")
-            row("Take-Home Pay:", f"${take_home:,.0f}")
-            row("Fixed Costs:", f"${fixed_costs:,.0f}")
-            row("Investments / Savings:", f"${invested:,.0f}")
-            row("Guilt-Free Spending:", f"${guilt_free:,.0f}")
-            status = "SURPLUS" if surplus >= 0 else "DEFICIT"
-            row(f"Budget {status}:", f"${abs(surplus):,.0f}/month")
-            pdf.ln(2)
-
-            section_header("YOUR WAY FORWARD")
-            pdf.set_font("Helvetica", "", 9)
-            pdf.set_x(15)
-            pdf.multi_cell(180, 5, safe(way_forward))
-            pdf.ln(2)
-
-            section_header("PRIORITY ACTIONS")
-            if on_track:
-                actions = [
-                    f"Set TSP contribution to {savings_rate*100:.1f}% of base pay in MyPay",
-                    "Verify TSP fund allocation matches your plan (Interfund Transfer if needed)",
-                    "After every promotion — increase savings rate, not spending",
-                    "Keep emergency fund in a High-Yield Savings Account (HYSA)",
-                ]
-            else:
-                actions = [
-                    "Secure your 5% BRS match in MyPay immediately — this is free money",
-                    "Identify and cut the largest negotiable fixed cost (housing, vehicle)",
-                    "Eliminate all debt above 8% APR before increasing discretionary spending",
-                    f"Work toward {savings_rate*100:.1f}% TSP contribution — start lower, increase with promotions",
-                    "Review full Way Ahead checklist in the app for step-by-step guidance",
-                ]
-            for i, action in enumerate(actions, 1):
-                pdf.set_font("Helvetica", "B", 9)
-                pdf.set_x(15)
-                pdf.cell(8, 5, f"{i}.", ln=False)
-                pdf.set_font("Helvetica", "", 9)
-                pdf.multi_cell(167, 5, safe(action))
-                pdf.set_x(15)
-
-            pdf.ln(3)
-            pdf.set_font("Helvetica", "I", 7)
-            pdf.set_text_color(120, 120, 120)
-            pdf.multi_cell(180, 4, safe(
-                "This document is for educational purposes only. Projections use simplified assumptions including "
-                "primary-zone promotion timelines, historical TSP fund return averages, and a 4% safe withdrawal rate. "
-                "Actual results will vary. Consult a Certified Financial Planner for personalized advice."))
-
-            pdf_bytes = pdf.output()
-            st.download_button(
-                label="⬇️ Download Your Financial Plan (PDF)",
-                data=bytes(pdf_bytes),
-                file_name=f"military_financial_plan_{datetime.date.today()}.pdf",
-                mime="application/pdf"
-            )
-            st.success("✅ PDF ready — click above to download.")
-
-        st.divider()
-
-        # ── On-screen preview ─────────────────────────────────────────────────
-        st.subheader("📊 Snapshot Preview")
-        col_a, col_b, col_c = st.columns(3)
-        with col_a:
-            st.markdown("**💰 Income**")
-            st.metric("Monthly Gross", f"${gross_monthly:,.0f}")
-            st.metric("Base Pay", f"${base_pay:,.0f}")
-            st.metric("BAH", f"${bah_amt:,.0f}")
-            st.metric("BAS", f"${bas_amt:,.0f}")
-        with col_b:
-            st.markdown("**📈 Retirement**")
-            st.metric("Est. Monthly Pension", f"${est_pension:,.0f}")
-            st.metric("Target Nest Egg", f"${nest_egg:,.0f}")
-            st.metric("Required Savings Rate", f"{savings_rate*100:.1f}% of Base Pay" if savings_rate else "—")
-            if success_prob is not None:
-                st.metric("Luck & Timing Roulette", f"{success_prob:.0f}%")
-        with col_c:
-            st.markdown("**⚖️ Budget**")
-            st.metric("Take-Home", f"${take_home:,.0f}")
-            st.metric("Fixed Costs", f"${fixed_costs:,.0f}")
-            st.metric("Invested", f"${invested:,.0f}")
-            delta_color = "normal" if surplus >= 0 else "inverse"
-            st.metric("Surplus / Deficit", f"${surplus:,.0f}",
-                      delta="On track" if surplus >= 0 else "Needs attention",
-                      delta_color=delta_color)
 
 # ── Session Logger (exit path) ────────────────────────────────────────────────
 # Streamlit has no true "on exit" hook. This block runs on the final render pass.
