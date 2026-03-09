@@ -1650,99 +1650,725 @@ with tab3:
     if surplus_amt < -5: st.error(f"⚠️ **Budget Deficit:** You are over-allocated by **${abs(surplus_amt):,.2f}**.")
     elif surplus_amt > 5: st.success(f"✅ **Budget Surplus:** You have **${surplus_amt:,.2f}** unallocated.")
 
-# --- TAB 4: FINLIT QUIZ ---
+# --- TAB 4: KNOW THE SYSTEM ---
 with tab4:
     st.session_state.tabs_visited.add(4)
     st.session_state.max_tab_reached = max(st.session_state.max_tab_reached, 4)
-    st.header("Know the Game: Financial Readiness Quiz")
-    st.write("Let's see if you're actually ready to build wealth, or if you're about to become a dealership's favorite customer.")
-    
-    with st.form("finlit_quiz"):
-        st.markdown("### 🪖 The Basics")
-        q1 = st.radio("1. If you are in the Blended Retirement System (BRS), what is the maximum percentage the DoD will match?", 
-                      ["3% - Standard government match", "4% - The default contribution rate", "5% - The absolute maximum match"], index=None)
-        q2 = st.radio("2. Which of the following military pay components are entirely tax-free?", 
-                      ["Enlistment and Reenlistment Bonuses", "BAH (Housing) and BAS (Food)", "Hazardous Duty and Flight Pay"], index=None)
-        q3 = st.radio("3. When you sell leave days back to the military, what exactly are you getting paid?", 
-                      ["Base Pay + BAH + BAS", "Just your Base Pay (taxed)", "Double your Base Pay"], index=None)
-        
-        st.markdown("### 📈 The TSP (Thrift Savings Plan)")
-        q4 = st.radio("4. If you joined after 2018, what fund does your TSP automatically invest in?", 
-                      ["The G Fund (Government Securities)", "The C Fund (S&P 500)", "An L Fund (Lifecycle) matched to your age"], index=None) 
-        q5 = st.radio("5. What is the fundamental difference between Traditional and Roth TSP?", 
-                      ["Roth = Tax-deductible now, taxed later", "Roth = Taxes paid now, tax-free growth and withdrawals later", "Roth = No taxes ever, guaranteed"], index=None)
-        q6 = st.radio("6. How much of your base pay are you legally allowed to contribute to the TSP?", 
-                      ["Up to 15%", "Up to 60%", "Up to 100% (minus taxes and standard deductions)"], index=None)
-        
-        st.markdown("### 💳 Debt & Credit")
-        q7 = st.radio("7. How does the Servicemembers Civil Relief Act (SCRA) protect you from debt?", 
-                      ["Caps interest at 0% for all loans while deployed", "Caps interest at 6% for debt acquired BEFORE joining the military", "Caps interest at 18% for all credit cards"], index=None)
-        q8 = st.radio("8. What is the guaranteed return rate of the Savings Deposit Program (SDP) while deployed?", 
-                      ["5% annually", "10% annually (on up to $10,000)", "It just matches the S&P 500"], index=None)
-        q9 = st.radio("9. What is the mathematical target for a fully funded Emergency Fund?", 
-                      ["Exactly $500", "1 month of your Base Pay", "3 to 6 months of your fixed living expenses"], index=None)
-        q10 = st.radio("10. Which of these actually hurts your credit score?", 
-                       ["Checking your own score on Credit Karma", "Maxing out your credit limit (high utilization)", "Paying off a car loan completely"], index=None)
-        q11 = st.radio("11. If you finance a $25,000 car at 24% APR over 72 months, what happens?", 
-                       ["You build credit very fast", "You pay about $3,000 in interest", "You end up paying nearly double the car's sticker price"], index=None)
-        q12 = st.radio("12. In a normal economic market, what is a realistic, 'good' auto loan rate?", 
-                       ["0% is standard everywhere", "4% to 8%", "15% to 20%"], index=None)
-        q13 = st.radio("13. Which habit is the absolute best way to build an elite credit score?", 
-                       ["Keeping a small balance to 'show usage'", "Paying the minimum due on time every month", "Paying the full statement balance every single month"], index=None) 
-        q14 = st.radio("14. What is mathematically the WORST place to store a $10,000 emergency fund?", 
-                       ["A High-Yield Savings Account (HYSA)", "A standard checking account earning 0.01%", "A Money Market Account"], index=None)
-        
-        st.markdown("### 🦅 Big Military Benefits")
-        q15 = st.radio("15. The Post-9/11 GI Bill pays your tuition, plus a monthly housing stipend equal to what?", 
-                       ["The Base Pay of an E-5", "BAH at the E-5 with dependents rate for your school's zip code", "A flat $1,000 a month"], index=None)
-        q16 = st.radio("16. What is the 'catch' for transferring your GI Bill to a spouse or child?", 
-                       ["You can do it anytime after 10 years of service",
-                        "You must have 6 years of service, commit to 4 MORE years, AND have 100% GI Bill eligibility — which academy and ROTC scholarship grads don't reach until year 8 or 7 respectively",
-                        "You can only do it right before you retire"], index=None)
-        q17 = st.radio("17. The VA Loan is famous for 'zero down payment'. What is the reality of buying a home?", 
-                       ["You need absolutely zero cash to buy a house", "You still need cash for closing costs, earnest money, and inspections", "You are secretly required to put down 3%"], index=None)
-        q18 = st.radio("18. How do you get the expensive VA Loan 'Funding Fee' completely waived?", 
-                       ["Receive a Good Conduct Medal", "Get a VA disability rating of 10% or higher", "Request a waiver from your Commanding Officer"], index=None)
-        q19 = st.radio("19. Can you use a VA Loan to buy a multi-family property (like a duplex or quadplex)?", 
-                       ["No, single-family homes only", "Yes, but you must put 20% down", "Yes, as long as you live in one of the units for at least a year"], index=None)
-        
-        submitted = st.form_submit_button("Submit Answers & Get Scored")
-        
-        if submitted:
-            score = 0
-            if q1 == "5% - The absolute maximum match": score += 1
-            if q2 == "BAH (Housing) and BAS (Food)": score += 1
-            if q3 == "Just your Base Pay (taxed)": score += 1
-            if q4 == "An L Fund (Lifecycle) matched to your age": score += 1
-            if q5 == "Roth = Taxes paid now, tax-free growth and withdrawals later": score += 1
-            if q6 == "Up to 100% (minus taxes and standard deductions)": score += 1
-            if q7 == "Caps interest at 6% for debt acquired BEFORE joining the military": score += 1
-            if q8 == "10% annually (on up to $10,000)": score += 1
-            if q9 == "3 to 6 months of your fixed living expenses": score += 1
-            if q10 == "Maxing out your credit limit (high utilization)": score += 1
-            if q11 == "You end up paying nearly double the car's sticker price": score += 1
-            if q12 == "4% to 8%": score += 1
-            if q13 == "Paying the full statement balance every single month": score += 1
-            if q14 == "A standard checking account earning 0.01%": score += 1
-            if q15 == "BAH at the E-5 with dependents rate for your school's zip code": score += 1
-            if q16 == "You must have 6 years of service, commit to 4 MORE years, AND have 100% GI Bill eligibility — which academy and ROTC scholarship grads don't reach until year 8 or 7 respectively": score += 1
-            if q17 == "You still need cash for closing costs, earnest money, and inspections": score += 1
-            if q18 == "Get a VA disability rating of 10% or higher": score += 1
-            if q19 == "Yes, as long as you live in one of the units for at least a year": score += 1
-            
-            p = int((score / 19) * 100)
-            
-            st.divider()
-            st.metric("Final Score", f"{score}/19", f"{p}%")
-            
-            if score >= 18: 
-                st.success("🏆 **Elite Status.** You understand the game. Don't let lifestyle creep steal your wealth.")
-                st.balloons()
-            elif score >= 14: 
-                st.info("👍 **Solid Baseline.** You are safe from the Mustang trap, but you need to read up on your long-term benefits.")
-            else: 
-                st.error("🚨 **High Risk.** You are leaving thousands of dollars on the table. Hit Tab 5 (The Action Plan) right now.")
+    st.header("Know the System")
+    st.write(
+        "Most of this stuff isn't complicated. But a lot of it isn't obvious until someone points it out. "
+        "Some questions have clear answers. Some are just prompts to think about how you use money. "
+        "Take what's useful and ignore the rest."
+    )
 
+    # -----------------------------
+    # Debt & Interest
+    # -----------------------------
+    with st.expander("💳 Debt & Interest", expanded=True):
+        st.markdown("**Money grows in both directions.**")
+        st.markdown("Know which direction yours is going.")
+        st.caption("Question 1 of 4")
+
+        debt_q1 = st.radio(
+            "If you have debt with an interest rate above about **8%**, what is generally the smarter financial move?",
+            [
+                "Invest instead",
+                "Pay off the debt first",
+                "Ignore it",
+                "Take on more debt",
+            ],
+            index=None,
+            key="debt_q1",
+        )
+        if debt_q1:
+            st.info(
+                "High-interest debt grows faster than most investments.\n\n"
+                "If your debt is above roughly **8%**, the smarter move is usually to eliminate that debt before investing.\n\n"
+                "Investing while carrying expensive debt is like trying to fill a bucket with a hole in the bottom."
+            )
+
+        st.divider()
+        st.caption("Question 2 of 4")
+
+        debt_q2 = st.radio(
+            "Which strategy mathematically minimizes the total interest you pay?",
+            [
+                "Pay off the smallest balance first",
+                "Pay off the highest interest rate first",
+                "Pay minimum payments forever",
+                "Consolidate everything immediately",
+            ],
+            index=None,
+            key="debt_q2",
+        )
+        if debt_q2:
+            if debt_q2 == "Pay off the highest interest rate first":
+                st.info(
+                    "Paying the **highest interest rate first** is called the **Debt Avalanche**.\n\n"
+                    "It's the mathematically optimal strategy because it minimizes how much interest you pay over time.\n\n"
+                    "Learn more: [Debt Avalanche](https://www.investopedia.com/terms/d/debt-avalanche.asp)"
+                )
+            elif debt_q2 == "Pay off the smallest balance first":
+                st.info(
+                    "While not mathematically optimal, paying the smallest balance first is called the **Debt Snowball**.\n\n"
+                    "You'll end up paying a little more to the credit card company, but knocking out debts early can build momentum when you're trying to get out from under debt.\n\n"
+                    "Learn more: [Debt Snowball](https://www.investopedia.com/articles/personal-finance/080716/debt-avalanche-vs-debt-snowball-which-best-you.asp)"
+                )
+            else:
+                st.info(
+                    "The strategy that saves the most money is paying the **highest interest rate first**.\n\n"
+                    "That approach is called the **Debt Avalanche**. Paying the smallest balance first is the **Debt Snowball**.\n\n"
+                    "Learn more: [Debt Avalanche vs Debt Snowball](https://www.investopedia.com/articles/personal-finance/080716/debt-avalanche-vs-debt-snowball-which-best-you.asp)"
+                )
+
+        st.divider()
+        st.caption("Question 3 of 4")
+
+        debt_q3 = st.radio(
+            "If your credit utilization is **80%**, what does that mean?",
+            [
+                "80% of your cards are paid off",
+                "You are using 80% of your available credit",
+                "Your credit score is excellent",
+                "Your credit report is 80% positive",
+            ],
+            index=None,
+            key="debt_q3",
+        )
+        if debt_q3:
+            st.info(
+                "Credit utilization is the percentage of available credit you're using.\n\n"
+                "High utilization can **significantly lower your credit score**, even if you make payments on time.\n\n"
+                "Learn more:\n"
+                "- [Credit Karma](https://www.creditkarma.com)\n"
+                "- [Annual Credit Report](https://www.annualcreditreport.com)\n\n"
+                "These services essentially provide the same information."
+            )
+
+        st.divider()
+        st.caption("Question 4 of 4")
+
+        debt_q4 = st.radio(
+            "Under the **Servicemembers Civil Relief Act (SCRA)**, interest rates on pre-service debt are capped at:",
+            [
+                "4%",
+                "6%",
+                "8%",
+                "10%",
+            ],
+            index=None,
+            key="debt_q4",
+        )
+        if debt_q4:
+            st.info(
+                "If you had debt **before entering active duty**, lenders must cap the interest rate at **6%**.\n\n"
+                "If you've already paid interest above that rate, the lender must **refund the difference**.\n\n"
+                "Learn more: [SCRA Overview](https://www.justice.gov/servicemembers)"
+            )
+
+    # -----------------------------
+    # Emergency Fund
+    # -----------------------------
+    with st.expander("🛟 Emergency Fund"):
+        st.markdown("**Unexpected expenses are expected.**")
+        st.markdown("Don't let them steal your progress.")
+        st.caption("Question 1 of 5")
+
+        emergency_q1 = st.radio(
+            "What is an emergency fund designed for?",
+            [
+                "Vacations",
+                "Investment opportunities",
+                "Unexpected expenses",
+                "Shopping",
+            ],
+            index=None,
+            key="emergency_q1",
+        )
+        if emergency_q1:
+            st.info(
+                "Emergencies covered with credit cards can quietly derail financial plans.\n\n"
+                "They seem small at first, but they often create debt that takes months or years to unwind.\n\n"
+                "An emergency fund protects the progress you're making.\n\n"
+                "Learn more: [Emergency Fund Basics](https://www.consumerfinance.gov/consumer-tools/savings-goals/)"
+            )
+
+        st.divider()
+        st.caption("Question 2 of 5")
+
+        emergency_q2 = st.radio(
+            "What is a common target for a fully funded emergency fund?",
+            [
+                "$500",
+                "One paycheck",
+                "3–6 months of living expenses",
+                "$50,000",
+            ],
+            index=None,
+            key="emergency_q2",
+        )
+        if emergency_q2:
+            st.info(
+                "A common target is **3–6 months of essential expenses**.\n\n"
+                "The goal is to have enough cash to absorb major disruptions like job transitions, medical expenses, or unexpected repairs.\n\n"
+                "Learn more: [Emergency Savings](https://www.militaryonesource.mil/financial-legal/personal-finance/building-emergency-savings/)"
+            )
+
+        st.divider()
+        st.caption("Question 3 of 5")
+
+        emergency_q3 = st.radio(
+            "Where is the best place to store an emergency fund?",
+            [
+                "Checking account",
+                "Stock market",
+                "High-yield savings account",
+                "Cryptocurrency",
+            ],
+            index=None,
+            key="emergency_q3",
+        )
+        if emergency_q3:
+            st.info(
+                "Emergency funds should be **safe, liquid, and easily accessible**.\n\n"
+                "A **high-yield savings account (HYSA)** provides liquidity while still earning interest.\n\n"
+                "Learn more: [High-Yield Savings Account](https://www.investopedia.com/personal-finance/high-yield-savings-account/)"
+            )
+
+        st.divider()
+        st.caption("Question 4 of 5")
+
+        emergency_q4 = st.radio(
+            "Where is your emergency fund currently stored?",
+            [
+                "I don't have one",
+                "Checking account",
+                "Cash at home",
+                "Credit cards are my emergency plan",
+                "High-yield savings account",
+            ],
+            index=None,
+            key="emergency_q4",
+        )
+        if emergency_q4:
+            st.info(
+                "If emergencies are being covered with credit cards, it often slows financial progress dramatically.\n\n"
+                "A HYSA is usually a better default than checking because it keeps the money accessible while earning something."
+            )
+
+        st.divider()
+        st.caption("Question 5 of 5")
+
+        emergency_q5 = st.radio(
+            "Your car suddenly needs a **$600 repair today**. What do you do?",
+            [
+                "Put it on a credit card and pay it off slowly",
+                "Pay with emergency savings",
+                "Ignore it",
+                "Hope insurance covers it",
+            ],
+            index=None,
+            key="emergency_q5",
+        )
+        if emergency_q5:
+            st.info(
+                "Unexpected expenses happen regularly. The goal is to absorb them **without creating new debt**."
+            )
+
+    # -----------------------------
+    # Budgeting
+    # -----------------------------
+    with st.expander("🧭 Budgeting"):
+        st.markdown("**Money needs direction.**")
+        st.markdown("Give it one.")
+        st.caption("Question 1 of 5")
+
+        budget_q1 = st.radio(
+            "What is the real purpose of a budget?",
+            [
+                "Restrict spending",
+                "Track where money goes",
+                "Eliminate fun purchases",
+                "Impress financial planners",
+            ],
+            index=None,
+            key="budget_q1",
+        )
+        if budget_q1:
+            st.info(
+                "A budget is simply understanding where your money is going so you can decide whether that aligns with what you actually care about."
+            )
+
+        st.divider()
+        st.caption("Question 2 of 5")
+
+        budget_q2 = st.radio(
+            "What is the easiest way to save consistently?",
+            [
+                "Track spending daily",
+                "Invest when markets look good",
+                "Automatically invest a percentage of each paycheck",
+                "Save what's left at the end of the month",
+            ],
+            index=None,
+            key="budget_q2",
+        )
+        if budget_q2:
+            st.info(
+                "Automation beats motivation.\n\n"
+                "When investing happens automatically, it stops depending on willpower."
+            )
+
+        st.divider()
+        st.caption("Question 3 of 5")
+
+        budget_q3 = st.radio(
+            "Which approach tends to create the most satisfaction over time?",
+            [
+                "Minimize all spending",
+                "Spend randomly",
+                "Spend freely on things you love and cut the rest",
+                "Track every dollar forever",
+            ],
+            index=None,
+            key="budget_q3",
+        )
+        if budget_q3:
+            st.info(
+                "The goal isn't to spend less.\n\n"
+                "It's to spend intentionally on things that actually improve your life."
+            )
+
+        st.divider()
+        st.caption("Question 4 of 5")
+
+        budget_q4_joy = st.multiselect(
+            "Which spending categories bring you the most enjoyment? Select 1–2.",
+            [
+                "Travel",
+                "Eating out",
+                "Hobbies",
+                "Home improvements",
+                "Subscriptions",
+                "Cooking",
+                "Convenience services",
+            ],
+            key="budget_q4_joy",
+        )
+        budget_q4_dontcare = st.multiselect(
+            "Which of these do you spend money on **but don't actually care about much?**",
+            [
+                "Travel",
+                "Eating out",
+                "Hobbies",
+                "Home improvements",
+                "Subscriptions",
+                "Cooking",
+                "Convenience services",
+            ],
+            key="budget_q4_dontcare",
+        )
+        if budget_q4_joy or budget_q4_dontcare:
+            st.info(
+                "Most people don't regret spending money on things they love.\n\n"
+                "They regret spending money on things they barely notice."
+            )
+
+        st.divider()
+        st.caption("Question 5 of 5")
+
+        budget_q5 = st.radio(
+            "Which category do many households underestimate or overspend on?",
+            [
+                "Utilities",
+                "Insurance",
+                "Dining out",
+                "Taxes",
+            ],
+            index=None,
+            key="budget_q5",
+        )
+        if budget_q5:
+            st.info(
+                "Dining out is one of the most common areas where spending grows quietly over time.\n\n"
+                "The goal isn't to eliminate it — just make sure it's something you actually value."
+            )
+
+        st.divider()
+        st.markdown(
+            "If you're interested in rethinking your spending habits, these people write about this far more thoughtfully than I do:\n\n"
+            "- [Ramit Sethi](https://www.iwillteachyoutoberich.com)\n"
+            "- [Vicki Robin — Your Money or Your Life](https://yourmoneyoryourlife.com)\n"
+            "- [Paula Pant — Afford Anything](https://affordanything.com)\n"
+            "- [Morgan Housel — Psychology of Money](https://www.collaborativefund.com/blog/authors/morgan-housel/)"
+        )
+
+    # -----------------------------
+    # Investing & TSP
+    # -----------------------------
+    with st.expander("📈 Investing & TSP"):
+        st.markdown("**Time does most of the work.**")
+        st.markdown("Consistency makes it matter.")
+        st.caption("Question 1 of 5")
+
+        invest_q1 = st.radio(
+            "If you're in the **Blended Retirement System** and contributing less than 5% to your TSP, roughly how much government matching money could you be missing each year?",
+            [
+                "$0–$50",
+                "$100–$500",
+                "$500–$1,000",
+                "$1,600+",
+            ],
+            index=None,
+            key="invest_q1",
+        )
+        if invest_q1:
+            st.info(
+                "If you contribute **5% of your base pay**, the government contributes another **5%**.\n\n"
+                "Examples:\n"
+                "- **E-3 with 2 years:** about **$1,600/year**\n"
+                "- **E-6 with 7 years:** about **$2,600/year**\n"
+                "- **O-2 with 2 years:** about **$3,400/year**\n"
+                "- **O-3 with 6 years:** about **$4,400/year**\n\n"
+                "If you're contributing less than **5%**, you're leaving that money on the table."
+            )
+
+        st.divider()
+        st.caption("Question 2 of 5")
+
+        invest_q2 = st.radio(
+            "Which habit matters most for long-term investing success?",
+            [
+                "Picking the perfect stock",
+                "Timing the market",
+                "Investing consistently for many years",
+                "Watching financial news",
+            ],
+            index=None,
+            key="invest_q2",
+        )
+        if invest_q2:
+            st.info(
+                "Most investing success comes from **time and consistency**, not brilliance."
+            )
+
+        st.divider()
+        st.caption("Question 3 of 5")
+
+        invest_q3 = st.radio(
+            "What is the difference between **Roth and Traditional TSP**?",
+            [
+                "Roth taxed later / Traditional taxed now",
+                "Traditional taxed later / Roth taxed now",
+                "Same taxes",
+                "Roth grows faster",
+            ],
+            index=None,
+            key="invest_q3",
+        )
+        if invest_q3:
+            st.info(
+                "Nobody knows future tax rates.\n\n"
+                "The important thing is **investing consistently**.\n\n"
+                "For many service members, **Roth TSP is often the better default early in a career**.\n\n"
+                "Learn more: [Roth vs Traditional TSP](https://www.tsp.gov/making-contributions/traditional-and-roth-contributions/)"
+            )
+
+        st.divider()
+        st.caption("Question 4 of 5")
+
+        invest_q4 = st.radio(
+            "What do **TSP Lifecycle (L) Funds** do?",
+            [
+                "Guarantee returns",
+                "Automatically adjust investment risk over time",
+                "Eliminate market losses",
+                "Double contributions",
+            ],
+            index=None,
+            key="invest_q4",
+        )
+        if invest_q4:
+            st.info(
+                "Lifecycle funds gradually shift from **growth investments early** to **more stability later**, simplifying long-term investing.\n\n"
+                "Learn more: [TSP Lifecycle Funds](https://www.tsp.gov/funds-lifecycle/)"
+            )
+
+        st.divider()
+        st.caption("Question 5 of 5")
+
+        invest_q5 = st.radio(
+            "If you've already contributed the maximum to your TSP ($24,500 in 2026), where would you typically invest additional long-term retirement savings?",
+            [
+                "529 college savings account",
+                "Individual Retirement Account (IRA)",
+                "Taxable brokerage account",
+                "Mattress",
+            ],
+            index=None,
+            key="invest_q5",
+        )
+        if invest_q5:
+            st.info(
+                "If you've already maxed your TSP, the next common place for retirement investing is an **Individual Retirement Account (IRA)**.\n\n"
+                "IRAs provide additional tax advantages similar to the TSP.\n\n"
+                "After maxing both **TSP and IRA**, additional investing usually goes into a **taxable brokerage account**.\n\n"
+                "A common order looks like this:\n"
+                "1. Capture full **TSP match**\n"
+                "2. Max **TSP**\n"
+                "3. Max **IRA**\n"
+                "4. Invest additional savings in **taxable brokerage**\n\n"
+                "Learn more: [IRA overview](https://www.investopedia.com/terms/i/ira.asp)"
+            )
+
+    # -----------------------------
+    # GI Bill
+    # -----------------------------
+    with st.expander("🎓 GI Bill"):
+        st.markdown("**A career launch pad. Or a wasted benefit.**")
+        st.markdown("Your choice.")
+        st.caption("Question 1 of 5")
+
+        gi_q1 = st.radio(
+            "What does the Post-9/11 GI Bill typically cover?",
+            [
+                "Tuition only",
+                "Tuition, housing allowance, and books",
+                "Housing only",
+                "Student loans",
+            ],
+            index=None,
+            key="gi_q1",
+        )
+        if gi_q1:
+            st.info(
+                "The Post-9/11 GI Bill generally provides three things:\n\n"
+                "**1. Tuition and Fees**\n\n"
+                "- Full **in-state tuition** at public schools\n"
+                "- Up to **$28,937 per academic year (2026 cap)** at private schools\n\n"
+                "**2. Monthly Housing Allowance**\n\n"
+                "Based on **E-5 BAH with dependents** for the school's ZIP code.\n\n"
+                "You can check BAH rates here: [BAH Calculator](https://www.travel.dod.mil/Allowances/Basic-Allowance-for-Housing/BAH-Rate-Lookup/)\n\n"
+                "**3. Book Stipend**\n\n"
+                "Up to **$1,000 per academic year**\n\n"
+                "Depending on the school, the GI Bill can easily be worth **well over $100,000**.\n\n"
+                "Learn more: [VA GI Bill Benefits](https://www.va.gov/education/about-gi-bill-benefits/)"
+            )
+
+        st.divider()
+        st.caption("Question 2 of 5")
+
+        gi_q2 = st.radio(
+            "How is the GI Bill monthly housing allowance calculated?",
+            [
+                "Flat national amount",
+                "Based on your previous military pay",
+                "Based on E-5 BAH with dependents at the school's ZIP code",
+                "Based on tuition cost",
+            ],
+            index=None,
+            key="gi_q2",
+        )
+        if gi_q2:
+            st.info(
+                "The housing allowance is calculated using **E-5 BAH with dependents** for the location of the school.\n\n"
+                "That means the housing benefit varies significantly depending on where you attend.\n\n"
+                "Learn more: [BAH Calculator](https://www.travel.dod.mil/Allowances/Basic-Allowance-for-Housing/BAH-Rate-Lookup/)"
+            )
+
+        st.divider()
+        st.caption("Question 3 of 5")
+
+        gi_q3 = st.radio(
+            "When can you transfer the GI Bill to a dependent?",
+            [
+                "Anytime before retirement",
+                "After leaving the military",
+                "After 6 years of service with a 4-year service commitment",
+                "Only at 20 years",
+            ],
+            index=None,
+            key="gi_q3",
+        )
+        if gi_q3:
+            st.info(
+                "To transfer GI Bill benefits you must:\n\n"
+                "- have **6 years of service**\n"
+                "- commit to **4 additional years**\n\n"
+                "Many people wait too long and lose the opportunity.\n\n"
+                "Learn more: [Transfer Your GI Bill Benefits](https://www.va.gov/education/transfer-post-9-11-gi-bill-benefits/)"
+            )
+
+        st.divider()
+        st.caption("Question 4 of 5")
+
+        gi_q4 = st.radio(
+            "Why can't service academy graduates transfer their GI Bill at 6 years of service?",
+            [
+                "Officers are ineligible",
+                "They can",
+                "They must reach 8 years of service first",
+                "Congressional approval is required",
+            ],
+            index=None,
+            key="gi_q4",
+        )
+        if gi_q4:
+            st.info(
+                "Service academy graduates typically become eligible to transfer the GI Bill around **8 years of service**, not 6."
+            )
+
+        st.divider()
+        st.caption("Question 5 of 5")
+
+        gi_q5 = st.radio(
+            "You're at 18 years of service and decide to transfer your GI Bill to your child. What happens next?",
+            [
+                "Transfer is automatic",
+                "You must commit to 4 more years of service",
+                "Transfer is no longer allowed",
+                "The benefit disappears",
+            ],
+            index=None,
+            key="gi_q5",
+        )
+        if gi_q5:
+            st.info(
+                "GI Bill transfer requires a **4-year service commitment**.\n\n"
+                "If you initiate the transfer at **18 years**, the obligation extends to **22 years of service**.\n\n"
+                "Many people discover this rule too late.\n\n"
+                "Learn more: [GI Bill Transfer Rules](https://www.va.gov/education/transfer-post-9-11-gi-bill-benefits/)"
+            )
+
+    # -----------------------------
+    # VA Loan
+    # -----------------------------
+    with st.expander("🏠 VA Loan"):
+        st.markdown("**A powerful opportunity. Or a serious risk.**")
+        st.markdown("Understand the difference.")
+        st.caption("Question 1 of 5")
+
+        va_q1 = st.radio(
+            "What is the main advantage of the VA Loan program?",
+            [
+                "Guaranteed approval",
+                "Lower property taxes",
+                "Ability to buy a home with little or no down payment and no PMI",
+                "No closing costs",
+            ],
+            index=None,
+            key="va_q1",
+        )
+        if va_q1:
+            st.info(
+                "VA Loans allow qualified service members to buy homes with **little or no down payment** and **no private mortgage insurance (PMI)**.\n\n"
+                "This reduces the cash required to purchase a home compared with many conventional mortgages.\n\n"
+                "Learn more: [VA Home Loans](https://www.va.gov/housing-assistance/home-loans/)"
+            )
+
+        st.divider()
+        st.caption("Question 2 of 5")
+
+        va_q2 = st.radio(
+            "Which factor matters most when deciding whether buying with a VA Loan makes financial sense?",
+            [
+                "Your rank",
+                "Your credit score",
+                "How long you expect to stay in the home",
+                "Your car payment",
+            ],
+            index=None,
+            key="va_q2",
+        )
+        if va_q2:
+            st.info(
+                "Buying a home involves large transaction costs when you sell.\n\n"
+                "Example using a **$420,000 home (roughly the U.S. median price):**\n\n"
+                "- Realtor commission (~6%) → ~$25,000\n"
+                "- Closing costs → ~$5,000–$10,000\n\n"
+                "Total potential selling costs: **~$30,000+**\n\n"
+                "If you move after only a few years, the home price may not have risen enough to offset those costs.\n\n"
+                "Learn more: [Rent vs Buy Calculator](https://www.nytimes.com/interactive/2014/upshot/buy-rent-calculator.html)"
+            )
+
+        st.divider()
+        st.caption("Question 3 of 5")
+
+        va_q3 = st.radio(
+            "What does the VA Funding Fee do?",
+            [
+                "Lowers interest rates",
+                "Replaces property taxes",
+                "Adds additional cost to the loan",
+                "Eliminates closing costs",
+            ],
+            index=None,
+            key="va_q3",
+        )
+        if va_q3:
+            st.info(
+                "The VA Funding Fee helps support the VA loan program.\n\n"
+                "It typically ranges from about **2%–3.3% of the loan amount**.\n\n"
+                "Example:\n\n"
+                "$420,000 home\n"
+                "Funding fee → **~$8,000–$13,000**\n\n"
+                "Most borrowers roll this into the loan balance.\n\n"
+                "Learn more: [VA Funding Fee and Closing Costs](https://www.va.gov/housing-assistance/home-loans/funding-fee-and-closing-costs/)"
+            )
+
+        st.divider()
+        st.caption("Question 4 of 5")
+
+        va_q4 = st.radio(
+            "In the early years of a mortgage, where do most monthly payments go?",
+            [
+                "Principal",
+                "Closing costs",
+                "Interest",
+                "Property taxes",
+            ],
+            index=None,
+            key="va_q4",
+        )
+        if va_q4:
+            st.info(
+                "Mortgage payments early in a loan mostly go toward **interest**, not the loan balance.\n\n"
+                "Example:\n\n"
+                "$420,000 loan\n"
+                "6.5% interest\n"
+                "30-year mortgage\n\n"
+                "Monthly payment ≈ **$2,650**\n\n"
+                "First payment:\n"
+                "- Interest ≈ ~$2,280\n"
+                "- Principal ≈ ~$370\n\n"
+                "After several years of payments, you may have paid tens of thousands of dollars while reducing the loan balance only modestly.\n\n"
+                "Learn more:\n"
+                "- [Mortgage Amortization Calculator](https://www.bankrate.com/mortgages/amortization-calculator/)\n"
+                "- [Rent vs Buy Calculator](https://www.nytimes.com/interactive/2014/upshot/buy-rent-calculator.html)"
+            )
+
+        st.divider()
+        st.caption("Question 5 of 5")
+
+        va_q5 = st.radio(
+            "How much should homeowners generally budget each year for maintenance and repairs?",
+            [
+                "$0",
+                "$500",
+                "1–2% of the home's value per year",
+                "$1,000 total",
+            ],
+            index=None,
+            key="va_q5",
+        )
+        if va_q5:
+            st.info(
+                "A common rule of thumb is **1–2% of the home's value per year** for maintenance.\n\n"
+                "For a **$420,000 home**, that is roughly:\n\n"
+                "**$4,000–$8,000 annually**\n\n"
+                "This covers things like roof repairs, HVAC replacement, appliances, plumbing, and other ongoing maintenance.\n\n"
+                "Learn more: [Home Maintenance Budget](https://www.nytimes.com/guides/realestate/home-maintenance-budget)"
+            )
 # --- TAB 5: ACTION PLAN ---
 with tab5:
     st.session_state.tabs_visited.add(5)
@@ -2084,4 +2710,5 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
+
 
