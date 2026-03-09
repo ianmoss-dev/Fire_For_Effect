@@ -969,7 +969,14 @@ with tab2:
 
         _comp_res = st.session_state.fund_comparison_results
         _ages     = np.linspace(25, 75, 601)
-        _age65_i  = 480   # index of age 65 in the 601-point array (25 + 40*12 months)
+
+        # Age marker slider — drives the vertical line and per-fund annotations
+        _marker_age = st.slider(
+            "Marker age", min_value=30, max_value=75, value=65, step=1,
+            key="fund_cmp_marker_age",
+            help="Drag to move the reference line and update the balance annotations."
+        )
+        _marker_i = int((_marker_age - 25) * 12)   # index into the 601-point array
 
         _COLORS = {
             'C': '#00b4d8',
@@ -1031,12 +1038,12 @@ with tab2:
                 legendgroup=_f,
                 legendgrouptitle_text=None,
             ))
-            # Age-65 annotation
-            _med65 = _p50[_age65_i]
-            _label65 = f"${_med65/1e6:.2f}M" if _med65 >= 1e6 else f"${_med65:,.0f}"
+            # Marker-age annotation — updates with slider
+            _med_at_marker = _p50[_marker_i]
+            _marker_label  = f"${_med_at_marker/1e6:.2f}M" if _med_at_marker >= 1e6 else f"${_med_at_marker:,.0f}"
             fig_cmp.add_annotation(
-                x=65, y=_med65,
-                text=_label65,
+                x=_marker_age, y=_med_at_marker,
+                text=_marker_label,
                 showarrow=False,
                 font=dict(color=_col, size=9),
                 bgcolor="rgba(14,17,23,0.75)",
@@ -1056,12 +1063,12 @@ with tab2:
             annotation_font_color="#2dc653",
             annotation_font_size=10,
         )
-        # Subtle vertical marker at age 65
+        # Vertical marker line — moves with slider
         fig_cmp.add_vline(
-            x=65,
+            x=_marker_age,
             line_dash="dot",
-            line_color="#444466",
-            line_width=1,
+            line_color="#888899",
+            line_width=1.2,
         )
 
         fig_cmp.update_layout(
@@ -1101,9 +1108,35 @@ with tab2:
         st.caption(
             "**\\$500/month from age 25 · \\$0 starting balance · nominal returns · 1,000 trials per fund.** "
             "Solid line = median. Shaded band = 10th–90th percentile range. "
-            "Annotations show median value at age 65. "
+            "Annotations show median value at the marker age. "
             "Funds are modeled independently — real portfolios mix them."
         )
+
+        st.divider()
+        st.markdown("#### Still not sure? Three things worth knowing.")
+        st.markdown("""
+**The cost of waiting**
+
+Good enough, funded today, beats perfect, funded someday. Every month you spend deciding is a month of compounding you don't get back. Pick something reasonable and start. You can always adjust later — you can't recover time.
+
+[Does Market Timing Work? — Schwab](https://www.schwab.com/learn/story/does-market-timing-work)
+
+---
+
+**Your behavior is the variable**
+
+The best allocation in the world doesn't survive a panic-sell during a 30% dip. What you pick matters less than whether you can watch your balance get cut in half and do absolutely nothing. That's the actual skill.
+
+[The Behavior Gap — Carl Richards](https://behaviorgap.com)
+
+---
+
+**The best investors aren't watching**
+
+Fidelity reportedly found their highest-performing accounts belonged to people who forgot they had them. True or not, the point holds: the urge to tinker is the enemy. Set it. Ignore it. Let it compound.
+
+[Are the Best Investors Dead? — Meridian Financial](https://meridianfinancialadvisors.com/are-the-best-investors-dead/)
+        """)
 
     # Blended nominal & real return
     expected_nom       = get_blended_nominal_return(alloc_dict, years_to_grow)
@@ -2880,4 +2913,3 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
-
