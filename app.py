@@ -161,13 +161,23 @@ if "session_logged" not in st.session_state: st.session_state.session_logged = F
 if not st.session_state.consent_given:
     st.title("🎖️ F.I.R.E. for Effect")
     st.markdown("""
-There is no single tool that translates the most complex compensation structure in any employment sector into a clear answer to three questions every service member should be able to answer: what do I actually make, what do I need to save, and where does it go.
+The military probably has the most complicated compensation system of any profession. Base pay, BAH, BAS, tax advantages, retirement systems, special pays — it's a lot.
 
-This is an attempt to build that tool.
+But every service member should be able to answer three simple questions:
 
-It'll ask for your rank, zip code, and some budget numbers. None of that leaves your device — there's no database, no account, no way to connect any of it to you.
+**What do I actually make? What do I need to save? Where is my money going?**
 
-What I do collect, with your permission: anonymous usage data — which tabs you visit, whether the simulation runs, whether the PDF downloads, whether anything breaks. No names, no numbers, no PII. It helps me understand whether this is worth continuing to build.
+Surprisingly, there isn't a simple tool that pulls all of that together in one place.
+
+So we're trying to build one.
+
+The app asks for things like your rank, duty station ZIP code, and a few budget numbers so it can generate realistic estimates. None of that information leaves your device. There's no account, no database, and no way for us to connect anything back to you.
+
+With your permission, we do collect a small amount of anonymous usage data — things like which sections people open, whether the simulations run, whether the PDF downloads, and whether anything breaks.
+
+No names. No financial data. No personal information.
+
+It simply helps us answer one question: is this tool actually useful — or do people close it after 15 seconds?
     """)
 
     if st.button("✅ Let's go.", type="primary", use_container_width=False):
