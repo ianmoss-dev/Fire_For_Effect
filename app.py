@@ -53,15 +53,8 @@ def get_gsheet():
         )
         client = gspread.authorize(creds)
         sheet = client.open_by_key(SHEET_ID).sheet1
-
-        # Write header if sheet is empty
         if sheet.row_count == 0 or sheet.cell(1, 1).value != "timestamp":
-            sheet.append_row([
-                "timestamp", "anon_id", "zip", "device_type",
-                "session_duration_seconds", "tabs_visited", "max_tab_reached",
-                "monte_carlo_run", "quiz_score", "pdf_downloaded",
-                "bounced", "error_event"
-            ])
+            sheet.append_row(["timestamp", "anon_id", "device_type", "event_type", "detail"])
         return sheet
     except Exception:
         return None
@@ -83,32 +76,21 @@ def get_device_type():
     except Exception:
         return "unknown"
 
-def log_session():
+def log_event(event_type, detail=""):
+    """Fire-and-forget event logger. Each meaningful action writes one row."""
     try:
         sheet = get_gsheet()
         if sheet is None:
             return
-        elapsed = (datetime.datetime.now() - st.session_state.session_start).seconds
-        bounced = 1 if (elapsed < 60 and st.session_state.max_tab_reached <= 1) else 0
         sheet.append_row([
             datetime.datetime.now().isoformat(),
             st.session_state.anon_id,
-            st.session_state.tracked_zip,
             st.session_state.device_type,
-            elapsed,
-            len(st.session_state.tabs_visited),
-            st.session_state.max_tab_reached,
-            1 if st.session_state.monte_carlo_run else 0,
-            st.session_state.quiz_score,
-            1 if st.session_state.pdf_downloaded else 0,
-            bounced,
-            st.session_state.last_error or ""
+            event_type,
+            str(detail)
         ])
     except Exception:
         pass
-
-def log_error(error_msg):
-    st.session_state.last_error = str(error_msg)[:200]
 
 # ── Session State Initialization ─────────────────────────────────────────────
 # All keys initialized here with defaults. Streamlit reruns the entire script on
@@ -138,21 +120,18 @@ if "les_tsp_actual" not in st.session_state: st.session_state.les_tsp_actual = 0
 if "fund_comparison_results" not in st.session_state: st.session_state.fund_comparison_results = None
 
 # ── Analytics State ───────────────────────────────────────────────────────────
-# Written to Google Sheets via log_session(). Logged either on PDF download or
-# on final render (whichever comes first). anon_id is SHA-256 of User-Agent —
-# no PII, not reversible.
+# Event-driven logging — each flag ensures a given event fires exactly once
+# per session. log_event() writes one row per action to Google Sheets.
 if "consent_given" not in st.session_state: st.session_state.consent_given = False
 if "session_start" not in st.session_state: st.session_state.session_start = datetime.datetime.now()
 if "anon_id" not in st.session_state: st.session_state.anon_id = get_anon_id()
 if "device_type" not in st.session_state: st.session_state.device_type = get_device_type()
-if "tabs_visited" not in st.session_state: st.session_state.tabs_visited = set()
-if "max_tab_reached" not in st.session_state: st.session_state.max_tab_reached = 0
-if "tracked_zip" not in st.session_state: st.session_state.tracked_zip = ""
-if "monte_carlo_run" not in st.session_state: st.session_state.monte_carlo_run = False
-if "quiz_score" not in st.session_state: st.session_state.quiz_score = None
-if "pdf_downloaded" not in st.session_state: st.session_state.pdf_downloaded = False
-if "last_error" not in st.session_state: st.session_state.last_error = ""
-if "session_logged" not in st.session_state: st.session_state.session_logged = False
+if "session_start_logged" not in st.session_state: st.session_state.session_start_logged = False
+if "tabs_logged" not in st.session_state: st.session_state.tabs_logged = set()
+if "budget_mode_logged" not in st.session_state: st.session_state.budget_mode_logged = False
+if "monte_carlo_logged" not in st.session_state: st.session_state.monte_carlo_logged = False
+if "fund_comparison_logged" not in st.session_state: st.session_state.fund_comparison_logged = False
+if "pdf_logged" not in st.session_state: st.session_state.pdf_logged = False
 
 # ── Consent / Analytics Gate ─────────────────────────────────────────────────
 # App does not render until user accepts. consent_given persists in session_state
@@ -197,6 +176,7 @@ div.stButton > button[kind="primary"]:hover {
 
     if st.button("✅ Let's go.", type="primary", use_container_width=False):
         st.session_state.consent_given = True
+        log_event("session_start")
         st.rerun()
     st.stop()
 
@@ -621,8 +601,9 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
 
 # --- TAB 1: INCOME TRUTH ---
 with tab1:
-    st.session_state.tabs_visited.add(1)
-    st.session_state.max_tab_reached = max(st.session_state.max_tab_reached, 1)
+    if 1 not in st.session_state.tabs_logged:
+        st.session_state.tabs_logged.add(1)
+        log_event("tab_visited", 1)
     st.header("Step 1: What You Make")
 
     col1, col2 = st.columns(2)
@@ -632,7 +613,6 @@ with tab1:
     with col2:
         zip_code = st.text_input("Duty Station Zip Code", "93943")
         dep = st.checkbox("With Dependents?", value=True)
-        st.session_state.tracked_zip = zip_code
 
     with st.expander("🎖️ Optional Special / Incentive Pays (Monthly)"):
         sp1, sp2 = st.columns(2)
@@ -739,8 +719,9 @@ with tab1:
 # ════════════════════════════════════════════════════════════════════════════════
 # --- TAB 2: RETIREMENT ---
 with tab2:
-    st.session_state.tabs_visited.add(2)
-    st.session_state.max_tab_reached = max(st.session_state.max_tab_reached, 2)
+    if 2 not in st.session_state.tabs_logged:
+        st.session_state.tabs_logged.add(2)
+        log_event("tab_visited", 2)
     st.header("Step 2: Retirement & Pension Target")
     st.info("💡 **Reality Check:** We'll calculate the single savings rate — as a % of your base pay — that you can plug directly into MyPay and stay on track for your entire career.")
 
@@ -966,6 +947,9 @@ with tab2:
                             _res[_t, _i + 1] = _bal
                     _comp[_f] = _res
                 st.session_state.fund_comparison_results = _comp
+                if not st.session_state.fund_comparison_logged:
+                    st.session_state.fund_comparison_logged = True
+                    log_event("fund_comparison_viewed")
 
         _comp_res = st.session_state.fund_comparison_results
         _ages     = np.linspace(25, 75, 601)
@@ -1480,7 +1464,9 @@ consistency, and discipline.
         """)
 
         if st.button("Run Simulation", type="primary"):
-            st.session_state.monte_carlo_run = True
+            if not st.session_state.monte_carlo_logged:
+                st.session_state.monte_carlo_logged = True
+                log_event("monte_carlo_run")
             with st.spinner("Running 1,000 trials..."):
                 hist_returns, data_source = scrape_and_prep_tsp_data()
                 # l_fund_weight=0.0 — L-fund removed from MC. See note above alloc_dict.
@@ -1613,8 +1599,9 @@ consistency, and discipline.
 # ════════════════════════════════════════════════════════════════════════════════
 # --- TAB 3: CONSCIOUS SPENDING ---
 with tab3:
-    st.session_state.tabs_visited.add(3)
-    st.session_state.max_tab_reached = max(st.session_state.max_tab_reached, 3)
+    if 3 not in st.session_state.tabs_logged:
+        st.session_state.tabs_logged.add(3)
+        log_event("tab_visited", 3)
     st.header("Step 3: Where Does It Go?")
 
     special_pay = st.session_state.get("special_pay", 0.0)
@@ -1627,6 +1614,10 @@ with tab3:
         ],
         key="pay_mode_radio"
     )
+
+    if not st.session_state.budget_mode_logged:
+        st.session_state.budget_mode_logged = True
+        log_event("budget_mode", "LES" if "📋" in pay_mode else "manual")
 
     st.divider()
 
@@ -1920,8 +1911,9 @@ with tab3:
 
 # --- TAB 4: KNOW THE SYSTEM ---
 with tab4:
-    st.session_state.tabs_visited.add(4)
-    st.session_state.max_tab_reached = max(st.session_state.max_tab_reached, 4)
+    if 4 not in st.session_state.tabs_logged:
+        st.session_state.tabs_logged.add(4)
+        log_event("tab_visited", 4)
     st.header("Know the System")
     st.write(
         "Most of this stuff isn't complicated. But a lot of it isn't obvious until someone points it out. "
@@ -2639,8 +2631,9 @@ with tab4:
             )
 # --- TAB 5: ACTION PLAN ---
 with tab5:
-    st.session_state.tabs_visited.add(5)
-    st.session_state.max_tab_reached = max(st.session_state.max_tab_reached, 5)
+    if 5 not in st.session_state.tabs_logged:
+        st.session_state.tabs_logged.add(5)
+        log_event("tab_visited", 5)
     st.header("The Financial Order of Operations")
     st.write(
         "Crawl, walk, run. Most people never fail because they made the wrong choice — "
@@ -2819,8 +2812,9 @@ with tab5:
 # ════════════════════════════════════════════════════════════════════════════════
 # --- TAB 6: MY FINANCIAL PLAN (PDF) ---
 with tab6:
-    st.session_state.tabs_visited.add(6)
-    st.session_state.max_tab_reached = max(st.session_state.max_tab_reached, 6)
+    if 6 not in st.session_state.tabs_logged:
+        st.session_state.tabs_logged.add(6)
+        log_event("tab_visited", 6)
     st.header("📄 Your Plan")
     st.caption("Your numbers and your checklist — one PDF. Download it, share it, or just keep it somewhere you'll look at it.")
 
@@ -2893,10 +2887,9 @@ with tab6:
 
         # ── PDF generation ────────────────────────────────────────────────────
         if st.button("📥 Generate & Download PDF", type="primary"):
-            st.session_state.pdf_downloaded = True
-            if not st.session_state.session_logged:
-                st.session_state.session_logged = True
-                log_session()
+            if not st.session_state.pdf_logged:
+                st.session_state.pdf_logged = True
+                log_event("pdf_downloaded")
 
             from fpdf import FPDF
             import datetime
@@ -3121,8 +3114,9 @@ with tab6:
 
 # --- TAB 7: FEEDBACK ---
 with tab7:
-    st.session_state.tabs_visited.add(7)
-    st.session_state.max_tab_reached = max(st.session_state.max_tab_reached, 7)
+    if 7 not in st.session_state.tabs_logged:
+        st.session_state.tabs_logged.add(7)
+        log_event("tab_visited", 7)
     st.header("Feedback")
     st.write("Got a question? Found a bug? Want a new feature? Drop it below.")
 
@@ -3137,14 +3131,6 @@ with tab7:
     </form>
     """
     st.markdown(contact_form, unsafe_allow_html=True)
-
-# ── Session Logger (exit path) ────────────────────────────────────────────────
-# Streamlit has no true "on exit" hook. This block runs on the final render pass.
-# If session was already logged via PDF download button, this is a no-op.
-# --- LOG SESSION ON EXIT (if not already logged via PDF download) ---
-if not st.session_state.session_logged:
-    st.session_state.session_logged = True
-    log_session()
 
 # --- GLOBAL FOOTER & DISCLAIMER ---
 st.markdown("---")
