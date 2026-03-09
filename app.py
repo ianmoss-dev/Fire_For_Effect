@@ -979,11 +979,11 @@ with tab2:
             'G': '#b5838d',
         }
         _LABELS = {
-            'C': 'C-Fund — S&P 500',
-            'S': 'S-Fund — Small Cap',
-            'I': 'I-Fund — International',
-            'F': 'F-Fund — Bonds',
-            'G': 'G-Fund — Gov Securities',
+            'C': 'C-Fund',
+            'S': 'S-Fund',
+            'I': 'I-Fund',
+            'F': 'F-Fund',
+            'G': 'G-Fund',
         }
 
         def _hex_rgba(hx, a):
@@ -2880,3 +2880,4 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
+
