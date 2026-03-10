@@ -2902,8 +2902,8 @@ with tab5:
     with st.expander("2. Open a high-yield savings account and get to $1,000"):
         st.markdown(
             "Don't put this in your checking account — keep it separate enough that you won't spend it, "
-            "and in an account that actually pays you interest. $1,000 is the only goal right now. "
-            "Not 3 months of expenses, not 6. Just $1,000. That's the buffer that keeps one bad week "
+            "and in an account that actually pays you interest. Just one-thousand. That's the goal right now. "
+            "That's the buffer that keeps one bad week "
             "from going on a credit card.\n\n"
             "[Compare HYSA rates — NerdWallet](https://www.nerdwallet.com/best/banking/high-yield-online-savings-accounts)"
         )
@@ -2921,12 +2921,12 @@ with tab5:
 
     with st.expander("4. Kill high-interest debt"):
         st.markdown(
-            "Nothing beats a 20% APR. Every dollar you put toward it is a guaranteed return — "
-            "there is no investment that reliably clears that bar. Use the "
+            "No investment will beat a 20% APR debt. Every dollar you put toward it is a guaranteed return — "
+            " Use the "
             "[Avalanche method](https://www.investopedia.com/terms/d/debt-avalanche.asp) "
             "(highest rate first, mathematically optimal) or the "
             "[Snowball method](https://www.investopedia.com/terms/d/debt-snowball.asp) "
-            "(smallest balance first, psychological wins). Either works. Pick one and don't stop.\n\n"
+            "(smallest balance first, psychological wins). Either works. Pick one and get rid of the debt.\n\n"
             "[See what minimum payments actually cost you — Bankrate](https://www.bankrate.com/calculators/credit-cards/minimum-payment-calculator.aspx)"
         )
         st.checkbox("I have a plan to eliminate all debt above 8% APR", key="step_4")
@@ -2961,7 +2961,7 @@ with tab5:
             "Tab 2 gave you a percentage. Put that number into [MyPay](https://mypay.dfas.mil) and don't touch it. "
             "If your required savings will exceed the TSP annual limit, Tab 2 showed you where the overflow goes — "
             "IRA first, then brokerage. The point is that it happens automatically. "
-            "Not when you remember. Not when the market looks good. Every month, without you.\n\n"
+            "Not when you remember. Not when the market looks good. Every month, on repeat.\n\n"
             "[MyPay](https://mypay.dfas.mil) · "
             "[Roth IRA overview — Investopedia](https://www.investopedia.com/terms/r/rothira.asp)"
         )
@@ -3368,5 +3368,6 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
+
 
 
