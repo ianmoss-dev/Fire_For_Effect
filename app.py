@@ -710,6 +710,145 @@ with tab1:
     c_c.metric("BAS (Tax-Free)",  f"${bas:,.2f}")
     c_d.metric("Special Pays",    f"${special_pay:,.2f}")
 
+    st.divider()
+    st.subheader("Projected Annual Compensation by Year of Service")
+
+    with st.expander("Model assumptions"):
+        st.markdown("""
+- Projection runs from your current **TIS** through **20 years of service**
+- **BAH changes with projected rank**, using your current **duty-station ZIP** and dependent status
+- **BAS** changes only if you cross between enlisted/officer/warrant categories
+- **Special pays are held constant** at the values you entered above
+- Promotion timing uses the app's built-in **typical promotion timeline**
+- This is an illustrative model, not a prediction of your exact career
+        """)
+
+    def get_projection_terminal_rank(start_rank):
+        if start_rank in ["O-1E", "O-2E", "O-3E"]:
+            return "O-4"
+        if start_rank.startswith("O"):
+            return "O-5"
+        if start_rank.startswith("W"):
+            return "W-5"
+        return "E-7"
+
+    def project_rank_by_tis(start_rank, tis_value):
+        chain = get_progression_chain(start_rank)
+        terminal_rank = get_projection_terminal_rank(start_rank)
+
+        if terminal_rank not in chain:
+            terminal_idx = len(chain) - 1
+        else:
+            terminal_idx = chain.index(terminal_rank)
+
+        current_rank = chain[0]
+        for r in chain[:terminal_idx + 1]:
+            if tis_value >= PROMOTION_TIMELINE.get(r, 999):
+                current_rank = r
+            else:
+                break
+        return current_rank
+
+    proj_start_tis = int(np.ceil(tis))
+    proj_end_tis = 20
+
+    if proj_start_tis >= proj_end_tis:
+        st.info("Projection chart is only shown for users below 20 years of service.")
+    else:
+        projection_rows = []
+
+        for tis_year in range(proj_start_tis, proj_end_tis + 1):
+            projected_rank = project_rank_by_tis(rank, tis_year)
+
+            if st.session_state.bah_manual:
+                proj_base = get_base_pay(projected_rank, tis_year)
+                proj_bas = CONFIG["bas_officer"] if ("O" in projected_rank or "W" in projected_rank) else CONFIG["bas_enlisted"]
+                proj_bah = bah
+            else:
+                proj_base, proj_bas, proj_bah = get_military_pay(
+                    projected_rank,
+                    tis_year,
+                    zip_code,
+                    dep
+                )
+
+            annual_base = proj_base * 12
+            annual_bas = proj_bas * 12
+            annual_bah = proj_bah * 12
+            annual_special = special_pay * 12
+            annual_total = annual_base + annual_bas + annual_bah + annual_special
+
+            projection_rows.append({
+                "TIS": tis_year,
+                "Projected Rank": projected_rank,
+                "Base Pay": annual_base,
+                "BAS": annual_bas,
+                "BAH": annual_bah,
+                "Special Pays": annual_special,
+                "Total Compensation": annual_total
+            })
+
+        proj_df = pd.DataFrame(projection_rows)
+        proj_long = proj_df.melt(
+            id_vars=["TIS", "Projected Rank", "Total Compensation"],
+            value_vars=["Base Pay", "BAS", "BAH", "Special Pays"],
+            var_name="Component",
+            value_name="Annual Amount"
+        )
+
+        fig_proj = go.Figure()
+
+        for component in ["Base Pay", "BAS", "BAH", "Special Pays"]:
+            comp_df = proj_long[proj_long["Component"] == component]
+
+            fig_proj.add_trace(go.Bar(
+                x=comp_df["TIS"],
+                y=comp_df["Annual Amount"],
+                name=component,
+                customdata=np.stack([
+                    comp_df["Projected Rank"],
+                    comp_df["Total Compensation"]
+                ], axis=-1),
+                hovertemplate=(
+                    "TIS: %{x}<br>"
+                    "Projected Rank: %{customdata[0]}<br>"
+                    f"{component}: $%{{y:,.0f}}<br>"
+                    "Total Annual Compensation: $%{customdata[1]:,.0f}"
+                    "<extra></extra>"
+                )
+            ))
+
+        fig_proj.update_layout(
+            title="Projected Annual Compensation by Year of Service",
+            barmode="stack",
+            height=450,
+            plot_bgcolor="#0e1117",
+            paper_bgcolor="#0e1117",
+            font=dict(color="#fafafa"),
+            margin=dict(l=40, r=20, t=60, b=40),
+            xaxis=dict(
+                title="Years of Service (TIS)",
+                tickmode="linear",
+                dtick=1,
+                rangeslider=dict(visible=True),
+                gridcolor="#2a2a3e"
+            ),
+            yaxis=dict(
+                title="Annual Compensation ($)",
+                tickformat="$,.0f",
+                gridcolor="#2a2a3e"
+            ),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="left",
+                x=0
+            )
+        )
+
+        st.plotly_chart(fig_proj, use_container_width=True)
+
 # ════════════════════════════════════════════════════════════════════════════════
 # TAB 2: RETIREMENT SAVINGS RATE SOLVER
 # Core logic: binary search finds the single % of base pay that, compounded at
@@ -3139,3 +3278,4 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
+
