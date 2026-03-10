@@ -2858,11 +2858,11 @@ with tab5:
     if 5 not in st.session_state.tabs_logged:
         st.session_state.tabs_logged.add(5)
         log_event("tab_visited", 5)
-    st.header("The Financial Order of Operations")
+    st.header("The Personal Finance Playbook")
     st.write(
-        "Crawl, walk, run. Most people never fail because they made the wrong choice — "
-        "they fail because they never made one at all. These steps are in the right order for a reason. "
-        "Work them sequentially."
+        "Know where you are, decide what you want, and start building."
+        "Crawl, walk, run. You don't need to be perfect; you need to make progress."
+        "Plans without action are just dreams."
     )
 
     total_steps = 11
@@ -3368,3 +3368,4 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
+
