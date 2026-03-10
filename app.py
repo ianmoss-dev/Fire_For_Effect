@@ -604,7 +604,7 @@ with tab1:
     if 1 not in st.session_state.tabs_logged:
         st.session_state.tabs_logged.add(1)
         log_event("tab_visited", 1)
-    st.header("Step 1: What You Make")
+    st.header("What You Make")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -720,6 +720,7 @@ with tab1:
 - **BAS** changes only if you cross between enlisted/officer/warrant categories
 - **Special pays are held constant** at the values you entered above
 - Promotion timing uses the app's built-in **typical promotion timeline**
+- **Terminal rank caps:** Officers project to O-5, Warrant Officers to W-5, Enlisted to E-7 — ranks above those caps are not modeled in this projection
 - This is an illustrative model, not a prediction of your exact career
         """)
 
@@ -901,8 +902,14 @@ with tab2:
     if 2 not in st.session_state.tabs_logged:
         st.session_state.tabs_logged.add(2)
         log_event("tab_visited", 2)
-    st.header("Step 2: Retirement & Pension Target")
-    st.info("💡 **Reality Check:** We'll calculate the single savings rate — as a % of your base pay — that you can plug directly into MyPay and stay on track for your entire career.")
+    st.header("Retirement & Pension Target")
+    st.info(
+        "💡 **Why doesn't every financial app do this?** Because calculating a single savings rate that actually works "
+        "requires assumptions — about promotion timelines, fund returns, inflation, and your post-military income. "
+        "Most tools skip it because the assumptions make them uncomfortable. This one doesn't. "
+        "Every assumption baked into this model is documented in the **📋 Model Assumptions** expander at the bottom of this tab. "
+        "They are all intentionally conservative — the goal is to make sure you *hit* your targets, not just feel good about the math."
+    )
 
     # ── Row 1: Career inputs ──────────────────────────────────────────────────
     col_l, col_r = st.columns(2)
@@ -1767,6 +1774,10 @@ consistency, and discipline.
         1,000 trials. Each trial randomly samples historical monthly returns from real market data (via yfinance proxies: ^GSPC, ^RUT, EFA, AGG, ^IRX) with replacement, and applies your projected contribution schedule. Returns are deflated by your selected inflation rate. Contributions are nominal dollars. Success = portfolio ≥ target nest egg at your stop-working age.
 
         **Other:** Nest egg target uses the 4% safe withdrawal rule. Civilian salary is a major unknown — be conservative.
+
+        **Actuarial Pension Value (APV)**
+
+        Discounts the lifetime pension stream to a single present value. Uses a **2.5% real discount rate** and **SSA Period Life Tables** (2020) to model survival probability by age and sex. This produces a conservative lump-sum equivalent — useful for comparing pension value to a TSP balance side-by-side.
         """)
 # ════════════════════════════════════════════════════════════════════════════════
 # TAB 3: CONSCIOUS SPENDING / BUDGET
@@ -1781,7 +1792,7 @@ with tab3:
     if 3 not in st.session_state.tabs_logged:
         st.session_state.tabs_logged.add(3)
         log_event("tab_visited", 3)
-    st.header("Step 3: Where Does It Go?")
+    st.header("Where Does It Go?")
 
     special_pay = st.session_state.get("special_pay", 0.0)
 
@@ -1981,6 +1992,16 @@ with tab3:
         monthly_fica    = taxable_monthly * 0.0765
         take_home = taxable_monthly - monthly_fed_tax - monthly_fica + mil_nontaxable + total_extra_income
         st.caption(f"*Estimated Taxes: Federal **${monthly_fed_tax:,.0f}** | FICA **${monthly_fica:,.0f}** — BAH/BAS excluded from tax. Your actual deductions will differ.*")
+        with st.expander("📋 Tax Estimate Assumptions"):
+            st.markdown("""
+- **Filing status:** Single (most conservative — married filing jointly would lower your tax bill)
+- **Standard deduction:** $15,000 (2025)
+- **Federal brackets applied:** 10% · 12% · 22% · 24% on taxable income above each threshold
+- **BAH and BAS are excluded from taxable income** per federal law — only base pay and special pays are taxed
+- **FICA:** Flat 7.65% on taxable monthly income (6.2% Social Security + 1.45% Medicare)
+- **State taxes not modeled** — several states exempt military pay entirely; your actual state liability will vary
+- These are rough estimates. Your LES deductions tab gives you exact numbers.
+            """)
     else:
         take_home = mil_takehome + total_extra_income
 
@@ -2032,6 +2053,19 @@ with tab3:
             st.error(f"**Over-allocated by ${abs(remaining):,.2f} — trim a category above.**")
 
         st.metric("Guilt-Free Total", f"${fun_total:,.2f}", f"{fun_pct:.1f}% of take-home")
+
+        with st.expander("🤔 Can't figure out where your money is actually going?"):
+            st.markdown("""
+If you filled this out and still felt like you were guessing — or you know your numbers don't add up but can't find the leak — a dedicated budgeting app can help you connect real transactions to real categories and surface the blind spots.
+
+**Three worth your time:**
+
+**[Copilot](https://copilot.money)** — Best-in-class transaction intelligence. Automatically categorizes spending with high accuracy and lets you customize rules. Strong on the "where did it actually go?" question. Apple only.
+
+**[Monarch Money](https://monarchmoney.com)** — The most complete picture: budgets, net worth, investments, and goals in one place. Works on all platforms. Best for people who want everything in one dashboard.
+
+**[YNAB (You Need A Budget)](https://ynab.com)** — Built around giving every dollar a job before you spend it. Steeper learning curve, but it's the gold standard for people who want to actively control spending rather than just track it. Free for active duty military.
+            """)
 
     # 1. Calculate Taxes for the Sankey Flow
     if "🎲" in pay_mode:
@@ -2103,7 +2137,7 @@ with tab4:
     # -----------------------------
     # Debt & Interest
     # -----------------------------
-    with st.expander("💳 Debt & Interest", expanded=True):
+    with st.expander("💳 Debt & Interest"):
         st.markdown("**Money grows in both directions.**")
         st.markdown("Know which direction yours is going.")
         st.caption("Question 1 of 4")
@@ -3318,4 +3352,3 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
-
