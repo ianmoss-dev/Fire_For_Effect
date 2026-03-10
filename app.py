@@ -752,7 +752,8 @@ with tab1:
     proj_start_tis = int(np.ceil(tis))
     proj_end_tis = 20
 
-    if proj_start_tis >= proj_end_tis:
+    # Fixed: was >= which hid the chart for anyone at exactly TIS 20
+    if proj_start_tis > proj_end_tis:
         st.info("Projection chart is only shown for users below 20 years of service.")
     else:
         projection_rows = []
@@ -789,62 +790,101 @@ with tab1:
             })
 
         proj_df = pd.DataFrame(projection_rows)
-        proj_long = proj_df.melt(
-            id_vars=["TIS", "Projected Rank", "Total Compensation"],
-            value_vars=["Base Pay", "BAS", "BAH", "Special Pays"],
-            var_name="Component",
-            value_name="Annual Amount"
-        )
+
+        # ── Color palette: taxable anchor → tax-free warm → bonus ────────────
+        # Base Pay: solid steel blue (dominant — largest component, taxable)
+        # BAH: amber/gold (tax-free housing — visually warm to signal advantage)
+        # BAS: muted teal (tax-free subsistence — smaller, quieter)
+        # Special Pays: bright accent only appears when non-zero
+        COMP_COLORS = {
+            "Base Pay":    "#4C9BE8",   # steel blue — dominant, taxable
+            "BAH":         "#F0A500",   # amber gold — tax-free housing
+            "BAS":         "#3ABFAB",   # teal — tax-free subsistence
+            "Special Pays":"#E8654C",   # coral — bonus / accent only if present
+        }
+
+        # Build traces — skip Special Pays entirely if user has none
+        has_special = proj_df["Special Pays"].sum() > 0
+        components = ["Base Pay", "BAH", "BAS"]
+        if has_special:
+            components.append("Special Pays")
 
         fig_proj = go.Figure()
 
-        for component in ["Base Pay", "BAS", "BAH", "Special Pays"]:
-            comp_df = proj_long[proj_long["Component"] == component]
-
+        for component in components:
             fig_proj.add_trace(go.Bar(
-                x=comp_df["TIS"],
-                y=comp_df["Annual Amount"],
+                x=proj_df["TIS"],
+                y=proj_df[component],
                 name=component,
+                marker_color=COMP_COLORS[component],
                 customdata=np.stack([
-                    comp_df["Projected Rank"],
-                    comp_df["Total Compensation"]
+                    proj_df["Projected Rank"],
+                    proj_df["Total Compensation"]
                 ], axis=-1),
                 hovertemplate=(
-                    "TIS: %{x}<br>"
-                    "Projected Rank: %{customdata[0]}<br>"
+                    "<b>TIS %{x}  ·  %{customdata[0]}</b><br>"
                     f"{component}: $%{{y:,.0f}}<br>"
-                    "Total Annual Compensation: $%{customdata[1]:,.0f}"
+                    "Total: $%{customdata[1]:,.0f}"
                     "<extra></extra>"
                 )
             ))
 
+        # ── Promotion milestone annotations ──────────────────────────────────
+        # Detect TIS years where rank changes and annotate directly on the chart
+        # so the story of "why did comp jump?" is visible without hovering.
+        prev_rank = proj_df["Projected Rank"].iloc[0]
+        for _, row_data in proj_df.iterrows():
+            cur_rank = row_data["Projected Rank"]
+            if cur_rank != prev_rank:
+                fig_proj.add_vline(
+                    x=row_data["TIS"] - 0.5,
+                    line_width=1.2,
+                    line_dash="dot",
+                    line_color="rgba(255,255,255,0.25)"
+                )
+                fig_proj.add_annotation(
+                    x=row_data["TIS"],
+                    y=row_data["Total Compensation"] * 1.04,
+                    text=f"↑ {cur_rank}",
+                    showarrow=False,
+                    font=dict(size=10, color="#F0A500"),
+                    xanchor="center"
+                )
+                prev_rank = cur_rank
+
         fig_proj.update_layout(
-            title="Projected Annual Compensation by Year of Service",
             barmode="stack",
-            height=450,
+            height=440,
             plot_bgcolor="#0e1117",
             paper_bgcolor="#0e1117",
-            font=dict(color="#fafafa"),
-            margin=dict(l=40, r=20, t=60, b=40),
+            font=dict(color="#fafafa", family="sans-serif"),
+            margin=dict(l=60, r=20, t=20, b=50),
             xaxis=dict(
                 title="Years of Service (TIS)",
                 tickmode="linear",
                 dtick=1,
-                rangeslider=dict(visible=True),
-                gridcolor="#2a2a3e"
+                gridcolor="#1e2130",
+                linecolor="#2a2a3e",
+                tickfont=dict(size=11),
             ),
             yaxis=dict(
                 title="Annual Compensation ($)",
                 tickformat="$,.0f",
-                gridcolor="#2a2a3e"
+                gridcolor="#1e2130",
+                linecolor="#2a2a3e",
             ),
             legend=dict(
-                orientation="h",
+                orientation="v",
                 yanchor="bottom",
-                y=1.02,
-                xanchor="left",
-                x=0
-            )
+                y=0.04,
+                xanchor="right",
+                x=0.99,
+                bgcolor="rgba(14,17,23,0.7)",
+                bordercolor="#2a2a3e",
+                borderwidth=1,
+                font=dict(size=11),
+            ),
+            bargap=0.18,
         )
 
         st.plotly_chart(fig_proj, use_container_width=True)
@@ -3278,4 +3318,3 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
-
