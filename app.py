@@ -2064,7 +2064,7 @@ If you filled this out and still felt like you were guessing — or you know you
 
 **[Monarch Money](https://monarchmoney.com)** — The most complete picture: budgets, net worth, investments, and goals in one place. Works on all platforms. Best for people who want everything in one dashboard.
 
-**[YNAB (You Need A Budget)](https://ynab.com)** — Built around giving every dollar a job before you spend it. Steeper learning curve, but it's the gold standard for people who want to actively control spending rather than just track it. Free for active duty military.
+**[YNAB (You Need A Budget)](https://ynab.com)** — Built around giving every dollar a job before you spend it. Steeper learning curve, but it's the gold standard for people who want to actively control spending rather than just track it.
             """)
 
     # 1. Calculate Taxes for the Sankey Flow
@@ -2212,10 +2212,9 @@ with tab4:
             st.info(
                 "Credit utilization is the percentage of available credit you're using.\n\n"
                 "High utilization can **significantly lower your credit score**, even if you make payments on time.\n\n"
-                "Learn more:\n"
-                "- [Credit Karma](https://www.creditkarma.com)\n"
-                "- [Annual Credit Report](https://www.annualcreditreport.com)\n\n"
-                "These services essentially provide the same information."
+                "For monitoring: **[AnnualCreditReport.com](https://www.annualcreditreport.com)** gives you your actual credit reports from all three bureaus — Equifax, TransUnion, and Experian — and is the legally mandated free source. "
+                "Services like **[Credit Karma](https://www.creditkarma.com)** provide estimated scores and summarized data, which is useful for regular monitoring, "
+                "but may not catch every item on your full reports. YMMV — check the actual reports periodically to make sure nothing has been missed."
             )
 
         st.divider()
@@ -2485,25 +2484,31 @@ with tab4:
         st.caption("Question 1 of 5")
 
         invest_q1 = st.radio(
-            "If you're in the **Blended Retirement System** and contributing less than 5% to your TSP, roughly how much government matching money could you be missing each year?",
+            "If you're in the **Blended Retirement System**, what is the minimum TSP contribution needed to maximize your government match?",
             [
-                "$0–$50",
-                "$100–$500",
-                "$500–$1,000",
-                "$1,600+",
+                "3%",
+                "4%",
+                "5%",
+                "10%",
             ],
             index=None,
             key="invest_q1",
         )
         if invest_q1:
             st.info(
-                "If you contribute **5% of your base pay**, the government contributes another **5%**.\n\n"
-                "Examples:\n"
+                "Contributing **5% of your base pay** captures the full government match.\n\n"
+                "Here's how the BRS match works:\n"
+                "- DoD automatically contributes **1%** regardless of what you put in\n"
+                "- They match **dollar-for-dollar on your first 3%**\n"
+                "- They match **50 cents per dollar on your next 2%**\n\n"
+                "At 5% from you, the government adds **5% more** — for a total of **10% of base pay** going into your TSP every month. "
+                "Anything you contribute above 5% is still good — it just doesn't earn additional matching.\n\n"
+                "Examples of annual government match at 5% contribution:\n"
                 "- **E-3 with 2 years:** about **$1,600/year**\n"
                 "- **E-6 with 7 years:** about **$2,600/year**\n"
                 "- **O-2 with 2 years:** about **$3,400/year**\n"
                 "- **O-3 with 6 years:** about **$4,400/year**\n\n"
-                "If you're contributing less than **5%**, you're leaving that money on the table."
+                "If you're contributing less than **5%**, you're leaving free money on the table."
             )
 
         st.divider()
@@ -2676,11 +2681,11 @@ with tab4:
         st.caption("Question 4 of 5")
 
         gi_q4 = st.radio(
-            "Why can't service academy graduates transfer their GI Bill at 6 years of service?",
+            "Why can't ROTC and service academy graduates always transfer their GI Bill at 6 years of service?",
             [
                 "Officers are ineligible",
                 "They can",
-                "They must reach 8 years of service first",
+                "Their commissioning source and service obligation may affect when they reach full eligibility",
                 "Congressional approval is required",
             ],
             index=None,
@@ -2688,7 +2693,13 @@ with tab4:
         )
         if gi_q4:
             st.info(
-                "Service academy graduates typically become eligible to transfer the GI Bill around **8 years of service**, not 6."
+                "The 6-year transfer window is more complicated for ROTC and academy-commissioned officers. "
+                "Service obligations, how entitlement is calculated, and whether prior service counts "
+                "all affect the actual eligibility date — and the rules are nuanced enough that stating "
+                "a specific year here would risk being wrong for your situation.\n\n"
+                "**The right move:** Check [VA.gov's transfer page](https://www.va.gov/education/transfer-post-9-11-gi-bill-benefits/) "
+                "or call a VA education counselor (1-888-442-4551) to get your exact eligibility date. "
+                "Don't guess on this one — the 4-year service commitment you incur when you transfer is real."
             )
 
         st.divider()
@@ -2880,7 +2891,8 @@ with tab5:
             "Your CAC is your key to everything. Once you have it, get into "
             "[MyPay](https://mypay.dfas.mil) — that's where your pay, TSP contributions, "
             "and direct deposit all live. If you're in the BRS, set your TSP contribution "
-            "to at least 5% right now. The government matches it dollar for dollar up to that amount. "
+            "to at least **5%** right now. That's all it takes to capture the full government match — "
+            "1% automatic + dollar-for-dollar on your first 3% + 50 cents on the next 2% = 5% from them. "
             "Every paycheck you delay is money you don't get back.\n\n"
             "[How to change your TSP contribution](https://www.tsp.gov/making-contributions/start-change-stop-contributions/) · "
             "[MyPay](https://mypay.dfas.mil)"
@@ -2974,11 +2986,15 @@ with tab5:
         st.markdown(
             "You can transfer the Post-9/11 GI Bill to a dependent at 6 years of service, "
             "but you have to commit to 4 more years from the transfer date. "
-            "Academy grads don't reach full eligibility until year 8. "
+            "If you're ROTC- or academy-commissioned, your eligibility date may be later than year 6 "
+            "depending on your service obligation and how entitlement is calculated for your commissioning source — "
+            "don't assume the standard 6-year rule applies without checking. "
+            "Prior enlisted service can also affect the date. "
             "If you wait until year 18 you'll owe until year 22. "
             "Know your number, decide whether you want to transfer it, and put a calendar reminder "
             "on the exact date you become eligible — don't rely on someone telling you.\n\n"
-            "[Transfer your GI Bill — VA](https://www.va.gov/education/transfer-post-9-11-gi-bill-benefits/)"
+            "[Transfer your GI Bill — VA](https://www.va.gov/education/transfer-post-9-11-gi-bill-benefits/) · "
+            "VA education counselors: 1-888-442-4551"
         )
         st.checkbox("I know my GI Bill transfer eligibility date and have made a decision", key="step_9")
 
@@ -3290,7 +3306,7 @@ with tab6:
                 pdf.ln(0.5)
 
             checklist_group("CRAWL — Do all four simultaneously")
-            checklist_item("Get CAC access, log into MyPay, set TSP to at least 5%", "mypay.dfas.mil")
+            checklist_item("Get CAC access, log into MyPay, set TSP to at least 5% to capture full BRS match", "mypay.dfas.mil")
             checklist_item("Open a high-yield savings account and get to $1,000")
             checklist_item("Check pre-service debt for SCRA interest rate protection", "justice.gov/servicemembers")
             checklist_item("Kill high-interest debt — Avalanche or Snowball, pick one and commit")
