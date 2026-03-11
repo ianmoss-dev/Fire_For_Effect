@@ -699,8 +699,8 @@ with tab1:
     annual_gross = gross * 12
 
     col_monthly, col_annual = st.columns(2)
-    with col_monthly: st.info(f"### 🗓️ Monthly Gross\n# ${gross:,.2f}")
-    with col_annual: st.success(f"### 💰 Annual Gross\n# ${annual_gross:,.2f}")
+    with col_monthly: st.info(f"### 🗓️ Monthly Gross\n# \\${gross:,.2f}")
+    with col_annual: st.success(f"### 💰 Annual Gross\n# \\${annual_gross:,.2f}")
 
     st.write("")
 
@@ -1388,16 +1388,16 @@ Fidelity reportedly found their highest-performing accounts belonged to people w
             gap_dollars = monthly_dollar_equiv - les_tsp
             if gap_pct > 0.5:
                 st.warning(
-                    f"**You are currently saving {current_tsp_pct:.1f}% of your base pay (${les_tsp:,.2f}/month) toward TSP.** "
+                    f"**You are currently saving {current_tsp_pct:.1f}% of your base pay (\\${les_tsp:,.2f}/month) toward TSP.** "
                     f"To meet your financial goals, you need to increase your contributions to "
                     f"**{savings_pct * 100:.1f}%** — an increase of **{gap_pct:.1f} percentage points "
-                    f"(${gap_dollars:,.2f}/month)**. You can make this adjustment now in "
+                    f"(\\${gap_dollars:,.2f}/month)**. You can make this adjustment now in "
                     f"[MyPay](https://mypay.dfas.mil)."
                 )
             elif gap_pct < -0.5:
                 st.success(
-                    f"**You are currently saving {current_tsp_pct:.1f}% of your base pay (${les_tsp:,.2f}/month) toward TSP** — "
-                    f"**${abs(gap_dollars):,.2f}/month more than your goal requires.** "
+                    f"**You are currently saving {current_tsp_pct:.1f}% of your base pay (\\${les_tsp:,.2f}/month) toward TSP** — "
+                    f"**\\${abs(gap_dollars):,.2f}/month more than your goal requires.** "
                     f"That surplus increases the odds of hitting your goal, reduces the years you need to save until retirement, "
                     f"and increases the amount you'll have in retirement. However, if there's another priority, "
                     f"you are already expected to meet your retirement goals — this surplus could be considered "
@@ -1405,7 +1405,7 @@ Fidelity reportedly found their highest-performing accounts belonged to people w
                 )
             else:
                 st.success(
-                    f"**You are currently saving {current_tsp_pct:.1f}% of your base pay (${les_tsp:,.2f}/month) toward TSP** — "
+                    f"**You are currently saving {current_tsp_pct:.1f}% of your base pay (\\${les_tsp:,.2f}/month) toward TSP** — "
                     f"right on target. Nothing to change."
                 )
         elif les_tsp == 0.0:
@@ -1420,7 +1420,7 @@ Fidelity reportedly found their highest-performing accounts belonged to people w
 
         st.info(
             f"**Why the percentage matters more than the dollar amount.**\n\n"
-            f"A fixed ${monthly_dollar_equiv:,.0f}/month sounds simple — but inflation erodes its purchasing power every year. "
+            f"A fixed \\${monthly_dollar_equiv:,.0f}/month sounds simple — but inflation erodes its purchasing power every year. "
             f"A percentage of base pay scales automatically with every promotion and raise, keeping your contributions "
             f"aligned with what your future actually costs. Set it once, let your career do the rest.\n\n"
             f"**Military phase:** Save **{savings_pct * 100:.1f}% of base pay** — set this in MyPay. "
@@ -1441,9 +1441,9 @@ Fidelity reportedly found their highest-performing accounts belonged to people w
             # Build the cascade message
             _cascade_lines = [
                 f"**This is a good problem to have — you've leveled up.**\n\n"
-                f"Your required savings of **${monthly_dollar_equiv:,.0f}/month** exceeds "
+                f"Your required savings of **\\${monthly_dollar_equiv:,.0f}/month** exceeds "
                 f"the {'catch-up ' if current_age >= 50 else ''}TSP contribution limit "
-                f"(**${_TSP_MONTHLY_MAX:,.0f}/month** in 2026). "
+                f"(**\\${_TSP_MONTHLY_MAX:,.0f}/month** in 2026). "
                 f"Here's where each dollar goes:\n"
             ]
 
@@ -1452,8 +1452,8 @@ Fidelity reportedly found their highest-performing accounts belonged to people w
 
             _cascade_lines.append(
                 f"**{_step}. Set MyPay to {_mypay_pct:.1f}% of base pay** "
-                f"→ maxes your TSP at **${_TSP_MONTHLY_MAX:,.0f}/month** "
-                f"({'$31,000' if current_age >= 50 else '$24,500'}/yr). "
+                f"→ maxes your TSP at **\\${_TSP_MONTHLY_MAX:,.0f}/month** "
+                f"({'\\$31,000' if current_age >= 50 else '\\$24,500'}/yr). "
                 f"[Log in to MyPay](https://mypay.dfas.mil)"
             )
             _step += 1
@@ -1462,9 +1462,9 @@ Fidelity reportedly found their highest-performing accounts belonged to people w
                 _ira_contrib = min(_remaining, _IRA_MONTHLY_MAX)
                 _remaining  -= _ira_contrib
                 _cascade_lines.append(
-                    f"**{_step}. Contribute ${_ira_contrib:,.0f}/month to your IRA** "
-                    f"→ ${_ira_contrib * 12:,.0f}/yr "
-                    f"({'maxed' if _ira_contrib >= _IRA_MONTHLY_MAX - 0.5 else f'of ${_IRA_MONTHLY_MAX*12:,.0f} allowed'}). "
+                    f"**{_step}. Contribute \\${_ira_contrib:,.0f}/month to your IRA** "
+                    f"→ \\${_ira_contrib * 12:,.0f}/yr "
+                    f"({'maxed' if _ira_contrib >= _IRA_MONTHLY_MAX - 0.5 else f'of \\${_IRA_MONTHLY_MAX*12:,.0f} allowed'}). "
                     f"[IRA overview](https://www.investopedia.com/terms/i/ira.asp)"
                 )
                 _step += 1
@@ -1473,15 +1473,15 @@ Fidelity reportedly found their highest-performing accounts belonged to people w
                 _sp_ira_contrib = min(_remaining, _IRA_MONTHLY_MAX)
                 _remaining     -= _sp_ira_contrib
                 _cascade_lines.append(
-                    f"**{_step}. Contribute ${_sp_ira_contrib:,.0f}/month to a spouse IRA** "
-                    f"→ ${_sp_ira_contrib * 12:,.0f}/yr "
-                    f"({'maxed' if _sp_ira_contrib >= _IRA_MONTHLY_MAX - 0.5 else f'of ${_IRA_MONTHLY_MAX*12:,.0f} allowed'})."
+                    f"**{_step}. Contribute \\${_sp_ira_contrib:,.0f}/month to a spouse IRA** "
+                    f"→ \\${_sp_ira_contrib * 12:,.0f}/yr "
+                    f"({'maxed' if _sp_ira_contrib >= _IRA_MONTHLY_MAX - 0.5 else f'of \\${_IRA_MONTHLY_MAX*12:,.0f} allowed'})."
                 )
                 _step += 1
 
             if _remaining > 0.50:
                 _cascade_lines.append(
-                    f"**{_step}. Invest the remaining ${_remaining:,.0f}/month in a taxable brokerage account.** "
+                    f"**{_step}. Invest the remaining \\${_remaining:,.0f}/month in a taxable brokerage account.** "
                     f"No contribution limits. Low-cost index funds work the same way here. "
                     f"[Taxable brokerage overview](https://www.investopedia.com/terms/b/brokerageaccount.asp)"
                 )
@@ -1994,7 +1994,7 @@ with tab3:
         monthly_fed_tax = tax / 12
         monthly_fica    = taxable_monthly * 0.0765
         take_home = taxable_monthly - monthly_fed_tax - monthly_fica + mil_nontaxable + total_extra_income
-        st.caption(f"*Estimated Taxes: Federal **${monthly_fed_tax:,.0f}** | FICA **${monthly_fica:,.0f}** — BAH/BAS excluded from tax. Your actual deductions will differ.*")
+        st.caption(f"*Estimated Taxes: Federal **\\${monthly_fed_tax:,.0f}** | FICA **\\${monthly_fica:,.0f}** — BAH/BAS excluded from tax. Your actual deductions will differ.*")
         with st.expander("📋 Tax Estimate Assumptions"):
             st.markdown("""
 - **Filing status:** Single (most conservative — married filing jointly would lower your tax bill)
@@ -2008,7 +2008,7 @@ with tab3:
     else:
         take_home = mil_takehome + total_extra_income
 
-    st.info(f"💰 Total Combined Monthly Take-Home: **${take_home:,.2f}**")
+    st.info(f"💰 Total Combined Monthly Take-Home: **\\${take_home:,.2f}**")
     st.divider()
 
     col_a, col_b, col_c = st.columns(3)
@@ -2049,11 +2049,11 @@ with tab3:
 
         st.divider()
         if remaining > 0.005:
-            st.success(f"**Remaining to allocate: ${remaining:,.2f}**")
+            st.success(f"**Remaining to allocate: \\${remaining:,.2f}**")
         elif remaining >= -0.005:
             st.success("**Fully allocated. Nothing left on the table. ✅**")
         else:
-            st.error(f"**Over-allocated by ${abs(remaining):,.2f} — trim a category above.**")
+            st.error(f"**Over-allocated by \\${abs(remaining):,.2f} — trim a category above.**")
 
         st.metric("Guilt-Free Total", f"${fun_total:,.2f}", f"{fun_pct:.1f}% of take-home")
 
@@ -2122,8 +2122,8 @@ If you filled this out and still felt like you were guessing — or you know you
 
     st.plotly_chart(fig, use_container_width=True)
 
-    if surplus_amt < -5: st.error(f"⚠️ **Budget Deficit:** You are over-allocated by **${abs(surplus_amt):,.2f}**.")
-    elif surplus_amt > 5: st.success(f"✅ **Budget Surplus:** You have **${surplus_amt:,.2f}** unallocated.")
+    if surplus_amt < -5: st.error(f"⚠️ **Budget Deficit:** You are over-allocated by **\\${abs(surplus_amt):,.2f}**.")
+    elif surplus_amt > 5: st.success(f"✅ **Budget Surplus:** You have **\\${surplus_amt:,.2f}** unallocated.")
 
 # --- TAB 4: KNOW THE SYSTEM ---
 with tab4:
@@ -3371,7 +3371,3 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
-
-
-
-
