@@ -902,14 +902,21 @@ with tab2:
     if 2 not in st.session_state.tabs_logged:
         st.session_state.tabs_logged.add(2)
         log_event("tab_visited", 2)
-    st.header("Retirement & Pension Target")
-    st.info(
-        "💡 **Why doesn't every financial app do this?** Because calculating a single savings rate that actually works "
-        "requires assumptions — about promotion timelines, fund returns, inflation, and your post-military income. "
-        "Most tools skip it because the assumptions make them uncomfortable. This one doesn't. "
-        "Every assumption baked into this model is documented in the **📋 Model Assumptions** expander at the bottom of this tab. "
-        "They are all intentionally conservative — the goal is to make sure you *hit* your targets, not just feel good about the math."
-    )
+    st.header("Retirement & Pension Planning")
+    with st.expander("💡 Most apps give you a chart. Why does this give you a % to set in MyPay?"):
+        st.write(
+            "Most calculators won't commit to a number because getting one requires assumptions — "
+            "about promotion timelines, fund returns, inflation, and your post-military income. "
+            "Making those assumptions feels risky, so most tools hand you a chart and leave the hard part to you. "
+            "\n\n"
+            "The problem is that without financial expertise, defining those assumptions yourself is genuinely difficult. "
+            "The learning curve is steep, the material is dense, and most people don't have time to become experts "
+            "just to answer the question: *am I saving enough?*"
+            "\n\n"
+            "This calculator takes your inputs, applies conservative assumptions, and does the math for you — "
+            "outputting a single, actionable percentage you can set in MyPay today. "
+            "Every assumption is documented in the **📋 Model Assumptions** expander at the bottom of this tab."
+        )
 
     # ── Row 1: Career inputs ──────────────────────────────────────────────────
     col_l, col_r = st.columns(2)
@@ -3371,3 +3378,4 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
+
