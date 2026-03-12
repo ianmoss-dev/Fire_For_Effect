@@ -280,6 +280,13 @@ if "bah_manual" not in st.session_state: st.session_state.bah_manual = False
 if "is_oconus" not in st.session_state: st.session_state.is_oconus = False
 if "oha_location" not in st.session_state: st.session_state.oha_location = list(OHA_LOCATIONS.keys())[0]
 if "housing_label" not in st.session_state: st.session_state.housing_label = "BAH"
+if "is_dual_mil" not in st.session_state: st.session_state.is_dual_mil = False
+if "cola_amt" not in st.session_state: st.session_state.cola_amt = 0.0
+# Spouse pay stored separately so Tab 3 / Tab 6 can show breakdown
+if "spouse_base_pay" not in st.session_state: st.session_state.spouse_base_pay = 0.0
+if "spouse_bah_amt" not in st.session_state: st.session_state.spouse_bah_amt = 0.0
+if "spouse_bas_amt" not in st.session_state: st.session_state.spouse_bas_amt = 0.0
+if "spouse_special_pay" not in st.session_state: st.session_state.spouse_special_pay = 0.0
 if "les_tsp_actual" not in st.session_state: st.session_state.les_tsp_actual = 0.0
 if "fund_comparison_results" not in st.session_state: st.session_state.fund_comparison_results = None
 
@@ -772,24 +779,166 @@ with tab1:
         log_event("tab_visited", 1)
     st.header("What You Make")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        rank = st.selectbox("Current Rank", CONFIG["ranks"], index=14, key="tab1_rank_widget")
-        tis = st.number_input("Years of Service (TIS)", 0, 40, 0)
-    with col2:
-        dep = st.checkbox("With Dependents?", value=True)
+    # ── Global toggles ───────────────────────────────────────────────────────
+    tog1, tog2 = st.columns(2)
+    with tog1:
         is_oconus = st.checkbox(
             "🌍 OCONUS Assignment (OHA instead of BAH)",
             value=st.session_state.get("is_oconus", False),
             key="is_oconus_toggle",
             help="Check this if you are stationed overseas and receive Overseas Housing Allowance instead of BAH."
         )
+    with tog2:
+        is_dual_mil = st.checkbox(
+            "💑 Dual Military Household",
+            value=st.session_state.get("is_dual_mil", False),
+            key="is_dual_mil_toggle",
+            help="Both spouses are active duty. Adds a second set of pay fields and enforces the single-dependent BAH rule."
+        )
 
-    # ZIP input only shown for CONUS assignments
-    if not is_oconus:
-        zip_code = st.text_input("Duty Station Zip Code", "93943")
+    st.divider()
+
+    # ── Helper: render one member's rank/TIS/ZIP/dep/OHA fields ─────────────
+    def render_member_inputs(label, rank_default_idx, key_prefix, oconus, oha_location_default, other_dep_checked):
+        """
+        Renders rank, TIS, dep checkbox, and ZIP-or-OHA fields for one member.
+        Returns (rank, tis, dep, zip_code, bah_or_oha_total, housing_label, oha_location_or_none).
+        other_dep_checked: bool — if the other member already claimed dependents, this member cannot.
+        """
+        st.markdown(f"**{label}**")
+        c1, c2 = st.columns(2)
+        with c1:
+            m_rank = st.selectbox("Rank", CONFIG["ranks"], index=rank_default_idx, key=f"{key_prefix}_rank")
+            m_tis  = st.number_input("Years of Service (TIS)", 0, 40, 0, key=f"{key_prefix}_tis")
+        with c2:
+            if other_dep_checked:
+                st.warning("⚠️ Dependents already claimed by the other member — per DoD policy, only one spouse in a dual-military household can receive BAH/OHA at the **with-dependents** rate.")
+                m_dep = False
+                st.checkbox("With Dependents?", value=False, disabled=True, key=f"{key_prefix}_dep_disabled",
+                            help="Locked — the other member is claiming dependents.")
+            else:
+                m_dep = st.checkbox("With Dependents?", value=(key_prefix == "m1"), key=f"{key_prefix}_dep")
+
+        if not oconus:
+            m_zip = st.text_input("Duty Station ZIP Code", "93943", key=f"{key_prefix}_zip")
+            zip_found = DATA.get("zip_to_mha", {}).get(m_zip) is not None
+            if zip_found:
+                m_base, m_bas, m_bah = get_military_pay(m_rank, m_tis, m_zip, m_dep)
+            else:
+                m_base, m_bas, _ = get_military_pay(m_rank, m_tis, "92136", m_dep)
+                if m_zip:
+                    st.warning(f"⚠️ ZIP **{m_zip}** not found — enter BAH manually.")
+                m_bah = st.number_input("Manual BAH ($/month)", min_value=0.0, step=50.0, key=f"{key_prefix}_manual_bah")
+            m_housing_label = "BAH"
+            m_oha_location  = None
+        else:
+            m_zip = ""
+            m_oha_location = st.selectbox(
+                "Overseas Duty Station",
+                list(OHA_LOCATIONS.keys()),
+                index=list(OHA_LOCATIONS.keys()).index(oha_location_default)
+                      if oha_location_default in OHA_LOCATIONS else 0,
+                key=f"{key_prefix}_oha_location",
+            )
+            m_suggested_rental, m_suggested_utility = get_oha_rate(m_oha_location, m_rank, m_dep)
+            oc1, oc2, oc3 = st.columns(3)
+            with oc1:
+                m_rental = st.number_input("OHA — Rental ($/mo)", value=m_suggested_rental,
+                                           min_value=0.0, step=50.0, key=f"{key_prefix}_oha_rental",
+                                           help="Cost-reimbursement — you receive up to actual rent, unlike BAH.")
+            with oc2:
+                m_utility = st.number_input("OHA — Utility ($/mo)", value=m_suggested_utility,
+                                            min_value=0.0, step=25.0, key=f"{key_prefix}_oha_utility")
+            with oc3:
+                st.metric("Total OHA", f"${m_rental + m_utility:,.0f}/mo")
+            m_base, m_bas, _ = get_military_pay(m_rank, m_tis, "92136", m_dep)
+            m_bah = m_rental + m_utility
+            m_housing_label = "OHA"
+
+        return m_rank, m_tis, m_dep, m_zip, m_base, m_bas, m_bah, m_housing_label, m_oha_location
+
+    # ── Member 1 ─────────────────────────────────────────────────────────────
+    m1_label = "👤 Member 1 (You)" if is_dual_mil else "Your Info"
+
+    # For dual-mil dep enforcement: read m2 dep state to block m1 if needed
+    # We read from session state key to avoid forward-reference; defaults False on first run
+    m2_dep_checked = st.session_state.get("m2_dep", False) if is_dual_mil else False
+
+    (rank, tis, dep, zip_code,
+     base, bas, bah,
+     housing_label, oha_location) = render_member_inputs(
+        m1_label, 14, "m1",
+        is_oconus,
+        st.session_state.get("oha_location", list(OHA_LOCATIONS.keys())[0]),
+        other_dep_checked=m2_dep_checked,
+    )
+
+    # ── COLA (OCONUS only, applies to Member 1's assignment) ─────────────────
+    if is_oconus:
+        st.divider()
+        col_cola1, col_cola2 = st.columns([2, 1])
+        with col_cola1:
+            cola_amt = st.number_input(
+                "💱 Overseas COLA ($/month)",
+                min_value=0.0, step=25.0,
+                value=st.session_state.get("cola_amt", 0.0),
+                key="cola_input",
+                help=(
+                    "Overseas Cost of Living Allowance — non-taxable monthly supplement to offset higher "
+                    "non-housing costs at your OCONUS location. Varies by location, rank, dependent status, "
+                    "and number of dependents. Find your rate at: "
+                    "travel.dod.mil → Allowances → Overseas COLA Rate Lookup"
+                )
+            )
+        with col_cola2:
+            st.metric("Annual COLA", f"${cola_amt * 12:,.0f}/yr")
+        st.caption(
+            "COLA is separate from OHA and is paid based on a cost-of-living index for your duty station. "
+            "It fluctuates with exchange rates and is updated quarterly. "
+            "[DTMO COLA Rate Lookup →](https://www.travel.dod.mil/Allowances/Overseas-Cost-of-Living-Allowance/Overseas-COLA-Rate-Lookup/)"
+        )
+        st.session_state.cola_amt = cola_amt
     else:
-        zip_code = ""
+        cola_amt = 0.0
+        st.session_state.cola_amt = 0.0
+
+    # ── Member 2 (dual military only) ────────────────────────────────────────
+    if is_dual_mil:
+        st.divider()
+        m1_dep_checked = dep  # dep is m1's resolved value after enforcement above
+
+        (s_rank, s_tis, s_dep, s_zip,
+         s_base, s_bas, s_bah,
+         s_housing_label, s_oha_location) = render_member_inputs(
+            "👤 Member 2 (Spouse)",
+            CONFIG["ranks"].index("O-1") if "O-1" in CONFIG["ranks"] else 14,
+            "m2",
+            is_oconus,
+            st.session_state.get("oha_location", list(OHA_LOCATIONS.keys())[0]),
+            other_dep_checked=m1_dep_checked,
+        )
+
+        # Mutual exclusion guard: if somehow both ended up True (first-run edge case), clear m2
+        if dep and s_dep:
+            s_dep = False
+            st.error(
+                "⛔ **Both members cannot claim dependents.** "
+                "Per DoD policy (JTR Vol 1, Ch 10), only one member of a dual-military couple may receive "
+                "BAH/OHA at the with-dependents rate. Member 2's dependent status has been cleared. "
+                "Typically, the higher-ranking member claims dependents."
+            )
+
+        st.session_state.spouse_base_pay    = s_base
+        st.session_state.spouse_bah_amt     = s_bah
+        st.session_state.spouse_bas_amt     = s_bas
+        st.session_state.spouse_special_pay = 0.0  # spouse special pays not modeled separately
+    else:
+        s_base = s_bas = s_bah = 0.0
+        s_dep  = False
+        st.session_state.spouse_base_pay    = 0.0
+        st.session_state.spouse_bah_amt     = 0.0
+        st.session_state.spouse_bas_amt     = 0.0
+        st.session_state.spouse_special_pay = 0.0
 
     with st.expander("🎖️ Optional Special / Incentive Pays (Monthly)"):
         sp1, sp2 = st.columns(2)
@@ -846,81 +995,6 @@ with tab1:
     special_pay += dive_amt 
     special_pay += sdap_amt 
 
-    st.divider()
-
-    # ── CONUS (BAH) vs OCONUS (OHA) branching ────────────────────────────────
-    if not is_oconus:
-        # ── CONUS path: ZIP → BAH lookup ─────────────────────────────────────
-        zip_found = DATA.get("zip_to_mha", {}).get(zip_code) is not None
-        if zip_found:
-            base, bas, bah = get_military_pay(rank, tis, zip_code, dep)
-            st.session_state.bah_manual = False
-        else:
-            base, bas, _ = get_military_pay(rank, tis, "92136", dep)
-            st.warning(
-                f"⚠️ Zip code **{zip_code}** was not found in the BAH database. "
-                "Make sure you're entering your **duty station** zip code, not your home address. "
-                "If your zip is correct and still not found, enter your BAH manually below."
-            )
-            bah = st.number_input("Manual BAH Entry ($/month)", min_value=0.0, step=50.0,
-                                  key="manual_bah_input")
-            st.session_state.bah_manual = True
-        housing_label = "BAH"
-        st.session_state.is_oconus = False
-        st.session_state.housing_label = "BAH"
-
-    else:
-        # ── OCONUS path: location dropdown → OHA lookup ───────────────────────
-        oha_location = st.selectbox(
-            "Overseas Duty Station",
-            list(OHA_LOCATIONS.keys()),
-            index=list(OHA_LOCATIONS.keys()).index(st.session_state.oha_location)
-                  if st.session_state.oha_location in OHA_LOCATIONS else 0,
-            key="oha_location_select",
-        )
-
-        oha_suggested_rental, oha_suggested_utility = get_oha_rate(oha_location, rank, dep)
-
-        col_oha1, col_oha2, col_oha3 = st.columns(3)
-        with col_oha1:
-            oha_rental = st.number_input(
-                "OHA — Rental Allowance ($/month)",
-                value=oha_suggested_rental,
-                min_value=0.0, step=50.0,
-                key="oha_rental_input",
-                help="Pre-filled from hardcoded 2025 ballparks by rank and dependent status. OHA is a cost-reimbursement allowance — you receive up to your actual rent, not a flat keep-the-difference rate like BAH."
-            )
-        with col_oha2:
-            oha_utility = st.number_input(
-                "OHA — Utility Allowance ($/month)",
-                value=oha_suggested_utility,
-                min_value=0.0, step=25.0,
-                key="oha_utility_input",
-                help="Flat monthly utility/recurring maintenance allowance. Separate from the rental component."
-            )
-        with col_oha3:
-            oha_total_display = oha_rental + oha_utility
-            st.metric(
-                "Total OHA",
-                f"${oha_total_display:,.0f}/mo",
-                help="Rental + Utility. Both components are non-taxable."
-            )
-
-        st.caption(
-            f"📍 *{oha_location}* — rates are approximate 2025 ballparks from DTMO data, adjusted by rank and dependent status. "
-            f"Exchange-rate fluctuations can shift actual rates ±10–20%. "
-            f"**Always verify at [DTMO OHA Rate Lookup](https://www.travel.dod.mil/Allowances/Overseas-Housing-Allowance/OHA-Rate-Lookup/) before making financial decisions.**"
-        )
-
-        base, bas, _ = get_military_pay(rank, tis, "92136", dep)  # fallback ZIP — only used for base pay / BAS
-        bah = oha_rental + oha_utility   # total OHA stored in bah_amt for full downstream compatibility
-        st.session_state.bah_manual = False
-        st.session_state.is_oconus = True
-        st.session_state.oha_location = oha_location
-        housing_label = "OHA"
-        st.session_state.housing_label = "OHA"
-        zip_found = False  # not applicable
-
     st.session_state.base_pay    = base
     st.session_state.bas_amt     = bas
     st.session_state.bah_amt     = bah
@@ -928,6 +1002,11 @@ with tab1:
     st.session_state.tab1_rank   = rank
     st.session_state.tab1_tis    = tis
     st.session_state.tab1_zip    = zip_code
+    st.session_state.is_oconus   = is_oconus
+    st.session_state.is_dual_mil = is_dual_mil
+    st.session_state.housing_label = housing_label
+    if oha_location:
+        st.session_state.oha_location = oha_location
 
     # Log zip once per session — for OCONUS, log the station name instead
     if not st.session_state.zip_logged:
@@ -935,23 +1014,55 @@ with tab1:
             log_event("zip_entered", detail=f"OCONUS:{oha_location}")
             st.session_state.zip_logged = True
         elif zip_code:
+            zip_found = DATA.get("zip_to_mha", {}).get(zip_code) is not None
             log_event("zip_entered", detail=zip_found)
             st.session_state.zip_logged = True
 
-    gross = base + bas + bah + special_pay
+    # ── Household income totals ───────────────────────────────────────────────
+    m1_gross = base + bas + bah + special_pay + cola_amt
+    m2_gross = s_base + s_bas + s_bah if is_dual_mil else 0.0
+    gross        = m1_gross + m2_gross
     annual_gross = gross * 12
 
-    col_monthly, col_annual = st.columns(2)
-    with col_monthly: st.info(f"### 🗓️ Monthly Gross\n# \\${gross:,.2f}")
-    with col_annual: st.success(f"### 💰 Annual Gross\n# \\${annual_gross:,.2f}")
+    st.divider()
 
-    st.write("")
+    if is_dual_mil:
+        st.subheader("💑 Household Income Summary")
+        hh1, hh2, hh3 = st.columns(3)
+        with hh1:
+            st.markdown("**Member 1**")
+            st.metric("Monthly Gross", f"${m1_gross:,.2f}")
+            st.metric("Base Pay", f"${base:,.2f}")
+            st.metric(f"{housing_label} (Tax-Free)", f"${bah:,.2f}")
+            st.metric("BAS (Tax-Free)", f"${bas:,.2f}")
+            if cola_amt > 0:
+                st.metric("COLA (Tax-Free)", f"${cola_amt:,.2f}")
+            if special_pay > 0:
+                st.metric("Special Pays", f"${special_pay:,.2f}")
+        with hh2:
+            st.markdown("**Member 2 (Spouse)**")
+            st.metric("Monthly Gross", f"${m2_gross:,.2f}")
+            st.metric("Base Pay", f"${s_base:,.2f}")
+            st.metric(f"{s_housing_label} (Tax-Free)", f"${s_bah:,.2f}")
+            st.metric("BAS (Tax-Free)", f"${s_bas:,.2f}")
+        with hh3:
+            st.markdown("**Combined Household**")
+            st.info(f"### 🗓️ Monthly Gross\n# \\${gross:,.2f}")
+            st.success(f"### 💰 Annual Gross\n# \\${annual_gross:,.2f}")
+    else:
+        col_monthly, col_annual = st.columns(2)
+        with col_monthly: st.info(f"### 🗓️ Monthly Gross\n# \\${gross:,.2f}")
+        with col_annual: st.success(f"### 💰 Annual Gross\n# \\${annual_gross:,.2f}")
 
-    c_a, c_b, c_c, c_d = st.columns(4)
-    c_a.metric("Base Pay",                    f"${base:,.2f}")
-    c_b.metric(f"{housing_label} (Tax-Free)", f"${bah:,.2f}")
-    c_c.metric("BAS (Tax-Free)",              f"${bas:,.2f}")
-    c_d.metric("Special Pays",                f"${special_pay:,.2f}")
+        st.write("")
+        c_a, c_b, c_c, c_d = st.columns(4)
+        c_a.metric("Base Pay",                    f"${base:,.2f}")
+        c_b.metric(f"{housing_label} (Tax-Free)", f"${bah:,.2f}")
+        c_c.metric("BAS (Tax-Free)",              f"${bas:,.2f}")
+        if cola_amt > 0:
+            c_d.metric("COLA (Tax-Free)", f"${cola_amt:,.2f}")
+        else:
+            c_d.metric("Special Pays", f"${special_pay:,.2f}")
 
     st.divider()
     st.subheader("Projected Annual Compensation by Year of Service")
@@ -1286,6 +1397,11 @@ with tab2:
     # ── Row 2: Fund allocation ────────────────────────────────────────────────
     st.divider()
     st.subheader("📊 TSP Fund Allocation")
+    st.caption(
+        "By default, 100% goes to the L-Fund — TSP's automatic lifecycle strategy that shifts to "
+        "bonds as you approach retirement. To customize, move the sliders below. "
+        "The L-Fund percentage updates automatically to show what's left over."
+    )
 
     alloc_col, inf_col = st.columns([5, 1])
     with inf_col:
@@ -2061,6 +2177,8 @@ with tab3:
 
     special_pay   = st.session_state.get("special_pay", 0.0)
     housing_label = st.session_state.get("housing_label", "BAH")
+    is_dual_mil   = st.session_state.get("is_dual_mil", False)
+    cola_amt      = st.session_state.get("cola_amt", 0.0)
 
     pay_mode = st.radio(
         "Income Mode",
@@ -2243,8 +2361,11 @@ with tab3:
     # ── Take-Home Anchor ──────────────────────────────────────────────────────
     if "🎲" in pay_mode:
         mil_taxable    = st.session_state.base_pay + special_pay
-        mil_nontaxable = st.session_state.bah_amt + st.session_state.bas_amt
-        taxable_monthly = mil_taxable + total_extra_income
+        # Spouse base pay is also taxable; their BAH/BAS is non-taxable
+        spouse_taxable = st.session_state.get("spouse_base_pay", 0.0) if is_dual_mil else 0.0
+        mil_nontaxable = (st.session_state.bah_amt + st.session_state.bas_amt + cola_amt
+                         + (st.session_state.get("spouse_bah_amt", 0.0) + st.session_state.get("spouse_bas_amt", 0.0) if is_dual_mil else 0.0))
+        taxable_monthly = mil_taxable + spouse_taxable + total_extra_income
         annual_taxable  = taxable_monthly * 12
         std_deduction   = 15000
         tax_base = max(0, annual_taxable - std_deduction)
@@ -2260,13 +2381,15 @@ with tab3:
         monthly_fed_tax = tax / 12
         monthly_fica    = taxable_monthly * 0.0765
         take_home = taxable_monthly - monthly_fed_tax - monthly_fica + mil_nontaxable + total_extra_income
-        st.caption(f"*Estimated Taxes: Federal **\\${monthly_fed_tax:,.0f}** | FICA **\\${monthly_fica:,.0f}** — {housing_label}/BAS excluded from tax. Your actual deductions will differ.*")
+        dual_note = " Spouse base pay included in taxable income." if is_dual_mil else ""
+        cola_note = f" COLA (\\${cola_amt:,.0f}/mo) excluded as non-taxable." if cola_amt > 0 else ""
+        st.caption(f"*Estimated Taxes: Federal **\\${monthly_fed_tax:,.0f}** | FICA **\\${monthly_fica:,.0f}** — {housing_label}/BAS excluded from tax.{cola_note}{dual_note} Your actual deductions will differ.*")
         with st.expander("📋 Tax Estimate Assumptions"):
             st.markdown(f"""
-- **Filing status:** Single (most conservative — married filing jointly would lower your tax bill)
+- **Filing status:** {"Married filing jointly approximated — combined taxable income used" if is_dual_mil else "Single (most conservative — married filing jointly would lower your tax bill)"}
 - **Standard deduction:** $15,000 (2025)
 - **Federal brackets applied:** 10% · 12% · 22% · 24% on taxable income above each threshold
-- **{housing_label} and BAS are excluded from taxable income** per federal law — only base pay and special pays are taxed
+- **{housing_label}, BAS{"," if cola_amt > 0 else ""} {"and COLA are" if cola_amt > 0 else "are"} excluded from taxable income** per federal law — only base pay and special pays are taxed
 - **FICA:** Flat 7.65% on taxable monthly income (6.2% Social Security + 1.45% Medicare)
 - **State taxes not modeled** — several states exempt military pay entirely; your actual state liability will vary
 - These are rough estimates. Your LES deductions tab gives you exact numbers.
@@ -2282,7 +2405,9 @@ with tab3:
     
     with col_a:
         st.subheader("🛑 Fixed Costs")
-        housing = st.number_input("Housing + Utilities", value=float(st.session_state.bah_amt))
+        # Pre-fill housing with BAH/OHA + COLA — your non-taxable housing allowances are your housing budget
+        housing_prefill = float(st.session_state.bah_amt) + cola_amt
+        housing = st.number_input("Housing + Utilities", value=housing_prefill)
         trans = st.number_input("Car/Insurance/Fuel", value=bp * 0.15)
         health = st.number_input("Healthcare", value=bp * 0.08)
         groceries = st.number_input("Groceries", value=bp * 0.13)
@@ -3333,8 +3458,13 @@ with tab6:
         bah_amt       = st.session_state.get("bah_amt", 0.0)
         bas_amt       = st.session_state.get("bas_amt", 0.0)
         special_pay   = st.session_state.get("special_pay", 0.0)
+        cola_amt      = st.session_state.get("cola_amt", 0.0)
         housing_label = st.session_state.get("housing_label", "BAH")
-        gross_monthly = base_pay + bah_amt + bas_amt + special_pay
+        is_dual_mil   = st.session_state.get("is_dual_mil", False)
+        s_base        = st.session_state.get("spouse_base_pay", 0.0)
+        s_bah         = st.session_state.get("spouse_bah_amt", 0.0)
+        s_bas         = st.session_state.get("spouse_bas_amt", 0.0)
+        gross_monthly = base_pay + bah_amt + bas_amt + special_pay + cola_amt + (s_base + s_bah + s_bas if is_dual_mil else 0.0)
 
         savings_rate  = st.session_state.get("savings_rate_pct", 0.0)
         nest_egg      = st.session_state.get("nest_egg_target", 0.0)
@@ -3362,6 +3492,10 @@ with tab6:
             st.metric("Base Pay",       f"${base_pay:,.0f}")
             st.metric(housing_label,    f"${bah_amt:,.0f}")
             st.metric("BAS",            f"${bas_amt:,.0f}")
+            if cola_amt > 0:
+                st.metric("COLA",       f"${cola_amt:,.0f}")
+            if is_dual_mil and s_base > 0:
+                st.metric("Spouse Base Pay", f"${s_base:,.0f}")
         with col_b:
             st.markdown("**Retirement**")
             st.metric("Est. Monthly Pension",   f"${est_pension:,.0f}")
@@ -3439,7 +3573,13 @@ with tab6:
             row("Base Pay:", f"${base_pay:,.0f}")
             row(f"{housing_label} (Tax-Free):", f"${bah_amt:,.0f}")
             row("BAS (Tax-Free):", f"${bas_amt:,.0f}")
+            if cola_amt > 0:
+                row("COLA (Tax-Free):", f"${cola_amt:,.0f}")
             row("Special Pays:", f"${special_pay:,.0f}")
+            if is_dual_mil and s_base > 0:
+                row("Spouse Base Pay:", f"${s_base:,.0f}")
+                row(f"Spouse {housing_label} (Tax-Free):", f"${s_bah:,.0f}")
+                row("Spouse BAS (Tax-Free):", f"${s_bas:,.0f}")
             pdf.ln(3)
 
             # Retirement
@@ -4048,4 +4188,3 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
-
