@@ -40,6 +40,158 @@ CONFIG = {
 
 SHEET_ID = "1dFytsNBUepFXsIR4LOXIpsUZfqHfwhO32URiS37m--M"
 
+# ── OHA Hardcoded Rates ───────────────────────────────────────────────────────
+# Approximate 2025 monthly OHA rental allowances by overseas duty station.
+# Tuple format: (with_dependents, without_dependents) in USD.
+# Utility allowance is a flat monthly add-on (non-taxable, separate from rental).
+# Source: DTMO OHA Rate Lookup ballparks — exchange-rate fluctuations can shift
+# actual rates ±10-20%. Always verify at travel.dod.mil before financial planning.
+# ─────────────────────────────────────────────────────────────────────────────
+OHA_LOCATIONS = {
+    "Germany — Grafenwöhr / Vilseck": {
+        "utility": 440,
+        "rates": {
+            "E-1":(1350,1120),"E-2":(1370,1140),"E-3":(1390,1160),"E-4":(1420,1180),
+            "E-5":(1600,1320),"E-6":(1660,1370),"E-7":(1850,1530),"E-8":(1920,1590),"E-9":(1990,1650),
+            "W-1":(1800,1490),"W-2":(1840,1520),"W-3":(1900,1570),"W-4":(2060,1700),"W-5":(2130,1760),
+            "O-1":(2060,1700),"O-1E":(2060,1700),"O-2":(2140,1770),"O-2E":(2140,1770),
+            "O-3":(2240,1850),"O-3E":(2240,1850),"O-4":(2660,2190),"O-5":(2860,2350),
+            "O-6":(3060,2520),"O-7":(3460,2840),
+        },
+    },
+    "Germany — Stuttgart / Patch Barracks": {
+        "utility": 480,
+        "rates": {
+            "E-1":(1590,1320),"E-2":(1620,1350),"E-3":(1640,1370),"E-4":(1680,1400),
+            "E-5":(1890,1560),"E-6":(1960,1620),"E-7":(2180,1810),"E-8":(2260,1880),"E-9":(2350,1950),
+            "W-1":(2120,1760),"W-2":(2170,1800),"W-3":(2240,1860),"W-4":(2430,2010),"W-5":(2510,2080),
+            "O-1":(2430,2010),"O-1E":(2430,2010),"O-2":(2530,2090),"O-2E":(2530,2090),
+            "O-3":(2640,2180),"O-3E":(2640,2180),"O-4":(3140,2590),"O-5":(3380,2790),
+            "O-6":(3620,2990),"O-7":(4090,3380),
+        },
+    },
+    "Germany — Wiesbaden": {
+        "utility": 460,
+        "rates": {
+            "E-1":(1510,1250),"E-2":(1540,1280),"E-3":(1560,1300),"E-4":(1590,1320),
+            "E-5":(1790,1480),"E-6":(1860,1540),"E-7":(2070,1720),"E-8":(2150,1790),"E-9":(2230,1850),
+            "W-1":(2020,1670),"W-2":(2060,1710),"W-3":(2130,1760),"W-4":(2310,1910),"W-5":(2390,1980),
+            "O-1":(2310,1910),"O-1E":(2310,1910),"O-2":(2400,1990),"O-2E":(2400,1990),
+            "O-3":(2510,2080),"O-3E":(2510,2080),"O-4":(2980,2460),"O-5":(3210,2640),
+            "O-6":(3440,2840),"O-7":(3890,3210),
+        },
+    },
+    "Japan — Camp Zama / Sagamihara": {
+        "utility": 380,
+        "rates": {
+            "E-1":(1300,1080),"E-2":(1320,1100),"E-3":(1340,1120),"E-4":(1370,1140),
+            "E-5":(1520,1260),"E-6":(1580,1310),"E-7":(1760,1460),"E-8":(1830,1520),"E-9":(1900,1580),
+            "W-1":(1720,1430),"W-2":(1760,1460),"W-3":(1820,1510),"W-4":(1980,1640),"W-5":(2050,1700),
+            "O-1":(1980,1640),"O-1E":(1980,1640),"O-2":(2060,1710),"O-2E":(2060,1710),
+            "O-3":(2160,1790),"O-3E":(2160,1790),"O-4":(2580,2120),"O-5":(2780,2280),
+            "O-6":(2980,2450),"O-7":(3380,2780),
+        },
+    },
+    "Japan — Yokota AB Area (Tokyo Metro)": {
+        "utility": 420,
+        "rates": {
+            "E-1":(1500,1240),"E-2":(1520,1270),"E-3":(1540,1290),"E-4":(1580,1310)
+            ,"E-5":(1750,1450),"E-6":(1820,1510),"E-7":(2020,1680),"E-8":(2100,1750),"E-9":(2180,1820),
+            "W-1":(1980,1650),"W-2":(2020,1680),"W-3":(2090,1740),"W-4":(2280,1890),"W-5":(2360,1960),
+            "O-1":(2280,1890),"O-1E":(2280,1890),"O-2":(2370,1970),"O-2E":(2370,1970),
+            "O-3":(2490,2060),"O-3E":(2490,2060),"O-4":(2970,2450),"O-5":(3200,2640),
+            "O-6":(3430,2830),"O-7":(3890,3210),
+        },
+    },
+    "South Korea — Camp Humphreys": {
+        "utility": 350,
+        "rates": {
+            "E-1":(1280,1060),"E-2":(1300,1080),"E-3":(1320,1100),"E-4":(1350,1120),
+            "E-5":(1500,1240),"E-6":(1560,1290),"E-7":(1740,1440),"E-8":(1810,1500),"E-9":(1880,1560),
+            "W-1":(1700,1410),"W-2":(1740,1440),"W-3":(1800,1490),"W-4":(1960,1620),"W-5":(2030,1680),
+            "O-1":(1960,1620),"O-1E":(1960,1620),"O-2":(2040,1690),"O-2E":(2040,1690),
+            "O-3":(2140,1770),"O-3E":(2140,1770),"O-4":(2560,2100),"O-5":(2760,2260),
+            "O-6":(2960,2430),"O-7":(3360,2760),
+        },
+    },
+    "Italy — Vicenza (Caserma Del Din)": {
+        "utility": 460,
+        "rates": {
+            "E-1":(1420,1180),"E-2":(1440,1200),"E-3":(1460,1220),"E-4":(1490,1240),
+            "E-5":(1660,1380),"E-6":(1720,1430),"E-7":(1900,1580),"E-8":(1970,1640),"E-9":(2040,1700),
+            "W-1":(1860,1540),"W-2":(1900,1580),"W-3":(1960,1630),"W-4":(2120,1760),"W-5":(2190,1820),
+            "O-1":(2120,1760),"O-1E":(2120,1760),"O-2":(2200,1830),"O-2E":(2200,1830),
+            "O-3":(2300,1910),"O-3E":(2300,1910),"O-4":(2720,2240),"O-5":(2920,2400),
+            "O-6":(3120,2570),"O-7":(3520,2900),
+        },
+    },
+    "Belgium — SHAPE / Chièvres": {
+        "utility": 490,
+        "rates": {
+            "E-1":(1450,1200),"E-2":(1470,1220),"E-3":(1490,1240),"E-4":(1520,1260),
+            "E-5":(1700,1410),"E-6":(1760,1460),"E-7":(1950,1620),"E-8":(2020,1680),"E-9":(2090,1740),
+            "W-1":(1900,1580),"W-2":(1940,1610),"W-3":(2000,1660),"W-4":(2160,1800),"W-5":(2230,1860),
+            "O-1":(2160,1800),"O-1E":(2160,1800),"O-2":(2240,1870),"O-2E":(2240,1870),
+            "O-3":(2340,1950),"O-3E":(2340,1950),"O-4":(2760,2280),"O-5":(2960,2440),
+            "O-6":(3160,2610),"O-7":(3560,2940),
+        },
+    },
+    "United Kingdom — Lakenheath / Mildenhall": {
+        "utility": 520,
+        "rates": {
+            "E-1":(1820,1510),"E-2":(1840,1530),"E-3":(1870,1560),"E-4":(1900,1590),
+            "E-5":(2080,1740),"E-6":(2150,1800),"E-7":(2350,1960),"E-8":(2430,2030),"E-9":(2510,2100),
+            "W-1":(2280,1900),"W-2":(2330,1940),"W-3":(2400,2000),"W-4":(2580,2150),"W-5":(2660,2220),
+            "O-1":(2560,2140),"O-1E":(2560,2140),"O-2":(2660,2220),"O-2E":(2660,2220),
+            "O-3":(2780,2320),"O-3E":(2780,2320),"O-4":(3240,2670),"O-5":(3480,2870),
+            "O-6":(3720,3070),"O-7":(4180,3460),
+        },
+    },
+    "Bahrain — NSA Manama": {
+        "utility": 200,
+        "rates": {
+            "E-1":(1580,1310),"E-2":(1600,1330),"E-3":(1620,1350),"E-4":(1650,1380),
+            "E-5":(1830,1520),"E-6":(1900,1580),"E-7":(2100,1750),"E-8":(2180,1820),"E-9":(2260,1890),
+            "W-1":(2040,1700),"W-2":(2080,1740),"W-3":(2150,1800),"W-4":(2330,1950),"W-5":(2410,2020),
+            "O-1":(2300,1920),"O-1E":(2300,1920),"O-2":(2400,2010),"O-2E":(2400,2010),
+            "O-3":(2520,2110),"O-3E":(2520,2110),"O-4":(3000,2480),"O-5":(3240,2680),
+            "O-6":(3480,2880),"O-7":(3940,3270),
+        },
+    },
+    "Kuwait — Camp Arifjan": {
+        "utility": 180,
+        "rates": {
+            "E-1":(1260,1040),"E-2":(1280,1060),"E-3":(1300,1080),"E-4":(1330,1100),
+            "E-5":(1480,1220),"E-6":(1540,1270),"E-7":(1720,1420),"E-8":(1790,1480),"E-9":(1860,1540),
+            "W-1":(1680,1390),"W-2":(1720,1420),"W-3":(1780,1470),"W-4":(1940,1600),"W-5":(2010,1660),
+            "O-1":(1940,1600),"O-1E":(1940,1600),"O-2":(2020,1670),"O-2E":(2020,1670),
+            "O-3":(2120,1750),"O-3E":(2120,1750),"O-4":(2540,2080),"O-5":(2740,2240),
+            "O-6":(2940,2410),"O-7":(3340,2740),
+        },
+    },
+    "Poland — Powidz / Drawsko": {
+        "utility": 380,
+        "rates": {
+            "E-1":(1050,870),"E-2":(1070,890),"E-3":(1090,910),"E-4":(1120,930),
+            "E-5":(1280,1060),"E-6":(1340,1110),"E-7":(1520,1260),"E-8":(1590,1320),"E-9":(1660,1380),
+            "W-1":(1480,1230),"W-2":(1520,1260),"W-3":(1580,1310),"W-4":(1740,1450),"W-5":(1810,1510),
+            "O-1":(1720,1430),"O-1E":(1720,1430),"O-2":(1800,1500),"O-2E":(1800,1500),
+            "O-3":(1900,1580),"O-3E":(1900,1580),"O-4":(2320,1910),"O-5":(2520,2080),
+            "O-6":(2720,2250),"O-7":(3120,2580),
+        },
+    },
+}
+
+def get_oha_rate(location, rank, has_dep):
+    """Returns (rental_allowance, utility_allowance) for an overseas location + rank."""
+    loc = OHA_LOCATIONS.get(location, {})
+    rates = loc.get("rates", {})
+    # fallback: try E-5 rates if rank not found
+    pair = rates.get(rank, rates.get("E-5", (1500, 1200)))
+    rental = float(pair[0] if has_dep else pair[1])
+    utility = float(loc.get("utility", 400))
+    return rental, utility
+
 # --- ANALYTICS ---
 @st.cache_resource
 def get_gsheet():
@@ -99,7 +251,7 @@ def log_event(event_type, detail=""):
             pass
 
     import threading
-    threading.Thread(target=_write, daemon=True).start()
+    threading.Thread(target=_write, daemon=False).start()
 
 # ── Session State Initialization ─────────────────────────────────────────────
 # All keys initialized here with defaults. Streamlit reruns the entire script on
@@ -125,6 +277,9 @@ if "tab3_fixed" not in st.session_state: st.session_state.tab3_fixed = 0.0
 if "tab3_invested" not in st.session_state: st.session_state.tab3_invested = 0.0
 if "tab3_guilt_free" not in st.session_state: st.session_state.tab3_guilt_free = 0.0
 if "bah_manual" not in st.session_state: st.session_state.bah_manual = False
+if "is_oconus" not in st.session_state: st.session_state.is_oconus = False
+if "oha_location" not in st.session_state: st.session_state.oha_location = list(OHA_LOCATIONS.keys())[0]
+if "housing_label" not in st.session_state: st.session_state.housing_label = "BAH"
 if "les_tsp_actual" not in st.session_state: st.session_state.les_tsp_actual = 0.0
 if "fund_comparison_results" not in st.session_state: st.session_state.fund_comparison_results = None
 
@@ -622,8 +777,19 @@ with tab1:
         rank = st.selectbox("Current Rank", CONFIG["ranks"], index=14, key="tab1_rank_widget")
         tis = st.number_input("Years of Service (TIS)", 0, 40, 0)
     with col2:
-        zip_code = st.text_input("Duty Station Zip Code", "93943")
         dep = st.checkbox("With Dependents?", value=True)
+        is_oconus = st.checkbox(
+            "🌍 OCONUS Assignment (OHA instead of BAH)",
+            value=st.session_state.get("is_oconus", False),
+            key="is_oconus_toggle",
+            help="Check this if you are stationed overseas and receive Overseas Housing Allowance instead of BAH."
+        )
+
+    # ZIP input only shown for CONUS assignments
+    if not is_oconus:
+        zip_code = st.text_input("Duty Station Zip Code", "93943")
+    else:
+        zip_code = ""
 
     with st.expander("🎖️ Optional Special / Incentive Pays (Monthly)"):
         sp1, sp2 = st.columns(2)
@@ -682,22 +848,78 @@ with tab1:
 
     st.divider()
 
-    # Calculate dynamically — no button required
-    zip_found = DATA.get("zip_to_mha", {}).get(zip_code) is not None
+    # ── CONUS (BAH) vs OCONUS (OHA) branching ────────────────────────────────
+    if not is_oconus:
+        # ── CONUS path: ZIP → BAH lookup ─────────────────────────────────────
+        zip_found = DATA.get("zip_to_mha", {}).get(zip_code) is not None
+        if zip_found:
+            base, bas, bah = get_military_pay(rank, tis, zip_code, dep)
+            st.session_state.bah_manual = False
+        else:
+            base, bas, _ = get_military_pay(rank, tis, "92136", dep)
+            st.warning(
+                f"⚠️ Zip code **{zip_code}** was not found in the BAH database. "
+                "Make sure you're entering your **duty station** zip code, not your home address. "
+                "If your zip is correct and still not found, enter your BAH manually below."
+            )
+            bah = st.number_input("Manual BAH Entry ($/month)", min_value=0.0, step=50.0,
+                                  key="manual_bah_input")
+            st.session_state.bah_manual = True
+        housing_label = "BAH"
+        st.session_state.is_oconus = False
+        st.session_state.housing_label = "BAH"
 
-    if zip_found:
-        base, bas, bah = get_military_pay(rank, tis, zip_code, dep)
-        st.session_state.bah_manual = False
     else:
-        base, bas, _ = get_military_pay(rank, tis, "92136", dep)  # get base/bas with fallback zip
-        st.warning(
-            f"⚠️ Zip code **{zip_code}** was not found in the BAH database. "
-            "Make sure you're entering your **duty station** zip code, not your home address. "
-            "If your zip is correct and still not found, enter your BAH manually below."
+        # ── OCONUS path: location dropdown → OHA lookup ───────────────────────
+        oha_location = st.selectbox(
+            "Overseas Duty Station",
+            list(OHA_LOCATIONS.keys()),
+            index=list(OHA_LOCATIONS.keys()).index(st.session_state.oha_location)
+                  if st.session_state.oha_location in OHA_LOCATIONS else 0,
+            key="oha_location_select",
         )
-        bah = st.number_input("Manual BAH Entry ($/month)", min_value=0.0, step=50.0,
-                              key="manual_bah_input")
-        st.session_state.bah_manual = True
+
+        oha_suggested_rental, oha_suggested_utility = get_oha_rate(oha_location, rank, dep)
+
+        col_oha1, col_oha2, col_oha3 = st.columns(3)
+        with col_oha1:
+            oha_rental = st.number_input(
+                "OHA — Rental Allowance ($/month)",
+                value=oha_suggested_rental,
+                min_value=0.0, step=50.0,
+                key="oha_rental_input",
+                help="Pre-filled from hardcoded 2025 ballparks by rank and dependent status. OHA is a cost-reimbursement allowance — you receive up to your actual rent, not a flat keep-the-difference rate like BAH."
+            )
+        with col_oha2:
+            oha_utility = st.number_input(
+                "OHA — Utility Allowance ($/month)",
+                value=oha_suggested_utility,
+                min_value=0.0, step=25.0,
+                key="oha_utility_input",
+                help="Flat monthly utility/recurring maintenance allowance. Separate from the rental component."
+            )
+        with col_oha3:
+            oha_total_display = oha_rental + oha_utility
+            st.metric(
+                "Total OHA",
+                f"${oha_total_display:,.0f}/mo",
+                help="Rental + Utility. Both components are non-taxable."
+            )
+
+        st.caption(
+            f"📍 *{oha_location}* — rates are approximate 2025 ballparks from DTMO data, adjusted by rank and dependent status. "
+            f"Exchange-rate fluctuations can shift actual rates ±10–20%. "
+            f"**Always verify at [DTMO OHA Rate Lookup](https://www.travel.dod.mil/Allowances/Overseas-Housing-Allowance/OHA-Rate-Lookup/) before making financial decisions.**"
+        )
+
+        base, bas, _ = get_military_pay(rank, tis, "92136", dep)  # fallback ZIP — only used for base pay / BAS
+        bah = oha_rental + oha_utility   # total OHA stored in bah_amt for full downstream compatibility
+        st.session_state.bah_manual = False
+        st.session_state.is_oconus = True
+        st.session_state.oha_location = oha_location
+        housing_label = "OHA"
+        st.session_state.housing_label = "OHA"
+        zip_found = False  # not applicable
 
     st.session_state.base_pay    = base
     st.session_state.bas_amt     = bas
@@ -707,10 +929,14 @@ with tab1:
     st.session_state.tab1_tis    = tis
     st.session_state.tab1_zip    = zip_code
 
-    # Log zip once per session when it's a non-empty value
-    if zip_code and not st.session_state.zip_logged:
-        log_event("zip_entered", detail=zip_found)
-        st.session_state.zip_logged = True
+    # Log zip once per session — for OCONUS, log the station name instead
+    if not st.session_state.zip_logged:
+        if is_oconus:
+            log_event("zip_entered", detail=f"OCONUS:{oha_location}")
+            st.session_state.zip_logged = True
+        elif zip_code:
+            log_event("zip_entered", detail=zip_found)
+            st.session_state.zip_logged = True
 
     gross = base + bas + bah + special_pay
     annual_gross = gross * 12
@@ -722,16 +948,17 @@ with tab1:
     st.write("")
 
     c_a, c_b, c_c, c_d = st.columns(4)
-    c_a.metric("Base Pay",        f"${base:,.2f}")
-    c_b.metric("BAH (Tax-Free)",  f"${bah:,.2f}")
-    c_c.metric("BAS (Tax-Free)",  f"${bas:,.2f}")
-    c_d.metric("Special Pays",    f"${special_pay:,.2f}")
+    c_a.metric("Base Pay",                    f"${base:,.2f}")
+    c_b.metric(f"{housing_label} (Tax-Free)", f"${bah:,.2f}")
+    c_c.metric("BAS (Tax-Free)",              f"${bas:,.2f}")
+    c_d.metric("Special Pays",                f"${special_pay:,.2f}")
 
     st.divider()
     st.subheader("Projected Annual Compensation by Year of Service")
 
     with st.expander("Model assumptions"):
-        st.markdown("""
+        if not is_oconus:
+            st.markdown("""
 - Projection runs from your current **TIS** through **20 years of service**
 - **BAH changes with projected rank**, using your current **duty-station ZIP** and dependent status
 - **BAS** changes only if you cross between enlisted/officer/warrant categories
@@ -739,7 +966,17 @@ with tab1:
 - Promotion timing uses the app's built-in **typical promotion timeline**
 - **Terminal rank caps:** Officers project to O-5, Warrant Officers to W-5, Enlisted to E-7 — ranks above those caps are not modeled in this projection
 - This is an illustrative model, not a prediction of your exact career
-        """)
+            """)
+        else:
+            st.markdown(f"""
+- Projection runs from your current **TIS** through **20 years of service**
+- **OHA changes with projected rank** using hardcoded 2025 ballpark rates for **{oha_location}** and your dependent status — verify actual rates at DTMO
+- **BAS** changes only if you cross between enlisted/officer/warrant categories
+- **Special pays are held constant** at the values you entered above
+- Promotion timing uses the app's built-in **typical promotion timeline**
+- **Terminal rank caps:** Officers project to O-5, Warrant Officers to W-5, Enlisted to E-7
+- This is an illustrative model, not a prediction of your exact career
+            """)
 
     def get_projection_terminal_rank(start_rank):
         if start_rank in ["O-1E", "O-2E", "O-3E"]:
@@ -779,7 +1016,13 @@ with tab1:
         for tis_year in range(proj_start_tis, proj_end_tis + 1):
             projected_rank = project_rank_by_tis(rank, tis_year)
 
-            if st.session_state.bah_manual:
+            if is_oconus:
+                # OHA: look up rate for the projected rank at the selected location
+                proj_base = get_base_pay(projected_rank, tis_year)
+                proj_bas = CONFIG["bas_officer"] if ("O" in projected_rank or "W" in projected_rank) else CONFIG["bas_enlisted"]
+                proj_rental, proj_util = get_oha_rate(oha_location, projected_rank, dep)
+                proj_bah = proj_rental + proj_util
+            elif st.session_state.bah_manual:
                 proj_base = get_base_pay(projected_rank, tis_year)
                 proj_bas = CONFIG["bas_officer"] if ("O" in projected_rank or "W" in projected_rank) else CONFIG["bas_enlisted"]
                 proj_bah = bah
@@ -809,21 +1052,25 @@ with tab1:
 
         proj_df = pd.DataFrame(projection_rows)
 
+        # Rename the internal "BAH" column to the correct label (OHA or BAH)
+        if housing_label != "BAH":
+            proj_df = proj_df.rename(columns={"BAH": housing_label})
+
         # ── Color palette: taxable anchor → tax-free warm → bonus ────────────
         # Base Pay: solid steel blue (dominant — largest component, taxable)
-        # BAH: amber/gold (tax-free housing — visually warm to signal advantage)
+        # BAH/OHA: amber/gold (tax-free housing — visually warm to signal advantage)
         # BAS: muted teal (tax-free subsistence — smaller, quieter)
         # Special Pays: bright accent only appears when non-zero
         COMP_COLORS = {
-            "Base Pay":    "#4C9BE8",   # steel blue — dominant, taxable
-            "BAH":         "#F0A500",   # amber gold — tax-free housing
-            "BAS":         "#3ABFAB",   # teal — tax-free subsistence
-            "Special Pays":"#E8654C",   # coral — bonus / accent only if present
+            "Base Pay":       "#4C9BE8",   # steel blue — dominant, taxable
+            housing_label:    "#F0A500",   # amber gold — tax-free housing
+            "BAS":            "#3ABFAB",   # teal — tax-free subsistence
+            "Special Pays":   "#E8654C",   # coral — bonus / accent only if present
         }
 
         # Build traces — skip Special Pays entirely if user has none
         has_special = proj_df["Special Pays"].sum() > 0
-        components = ["Base Pay", "BAH", "BAS"]
+        components = ["Base Pay", housing_label, "BAS"]
         if has_special:
             components.append("Special Pays")
 
@@ -1039,6 +1286,11 @@ with tab2:
     # ── Row 2: Fund allocation ────────────────────────────────────────────────
     st.divider()
     st.subheader("📊 TSP Fund Allocation")
+    st.caption(
+        "By default, 100% goes to the L-Fund — TSP's automatic lifecycle strategy that shifts to "
+        "bonds as you approach retirement. To customize, move the sliders below. "
+        "The L-Fund percentage updates automatically to show what's left over."
+    )
 
     alloc_col, inf_col = st.columns([5, 1])
     with inf_col:
@@ -1812,7 +2064,8 @@ with tab3:
         log_event("tab_visited", 3)
     st.header("Where Does It Go?")
 
-    special_pay = st.session_state.get("special_pay", 0.0)
+    special_pay   = st.session_state.get("special_pay", 0.0)
+    housing_label = st.session_state.get("housing_label", "BAH")
 
     pay_mode = st.radio(
         "Income Mode",
@@ -1850,19 +2103,19 @@ with tab3:
         if "les_bah"  not in st.session_state: st.session_state["les_bah"]  = 0.0
         if "les_bas"  not in st.session_state: st.session_state["les_bas"]  = 0.0
 
-        if st.button("⬇️ Import Base Pay / BAH / BAS from Tab 1", key="import_tab1_pay"):
+        if st.button(f"⬇️ Import Base Pay / {housing_label} / BAS from Tab 1", key="import_tab1_pay"):
             st.session_state["les_base"] = tab1_base
             st.session_state["les_bah"]  = tab1_bah
             st.session_state["les_bas"]  = tab1_bas
             st.rerun()
 
-        les_base = st.number_input("Base Pay", min_value=0.0, step=10.0, key="les_base")
-        les_bah  = st.number_input("BAH",      min_value=0.0, step=10.0, key="les_bah")
-        les_bas  = st.number_input("BAS",      min_value=0.0, step=10.0, key="les_bas")
+        les_base = st.number_input("Base Pay",            min_value=0.0, step=10.0, key="les_base")
+        les_bah  = st.number_input(housing_label,         min_value=0.0, step=10.0, key="les_bah")
+        les_bas  = st.number_input("BAS",                 min_value=0.0, step=10.0, key="les_bas")
 
         mismatch_fields = []
         if tab1_base > 0 and abs(les_base - tab1_base) > 1.0: mismatch_fields.append(f"Base Pay (calculator: ${tab1_base:,.2f})")
-        if tab1_bah  > 0 and abs(les_bah  - tab1_bah)  > 1.0: mismatch_fields.append(f"BAH (calculator: ${tab1_bah:,.2f})")
+        if tab1_bah  > 0 and abs(les_bah  - tab1_bah)  > 1.0: mismatch_fields.append(f"{housing_label} (calculator: ${tab1_bah:,.2f})")
         if tab1_bas  > 0 and abs(les_bas  - tab1_bas)   > 1.0: mismatch_fields.append(f"BAS (calculator: ${tab1_bas:,.2f})")
 
         if mismatch_fields:
@@ -1873,7 +2126,7 @@ with tab3:
             ])
             st.warning(
                 f"The value you entered for **{field_names}** does not match the calculated value ({calc_values}). "
-                f"If the Base Pay, BAH, or BAS on your LES does not match the calculated values, you should: "
+                f"If the Base Pay, {housing_label}, or BAS on your LES does not match the calculated values, you should: "
                 f"a) be sure you selected all the right info, "
                 f"b) if it's still wrong, check with your S1. "
                 f"I'm not going to say I'm right and they're wrong, but... actually, yes, that's exactly what I'm saying."
@@ -2012,13 +2265,13 @@ with tab3:
         monthly_fed_tax = tax / 12
         monthly_fica    = taxable_monthly * 0.0765
         take_home = taxable_monthly - monthly_fed_tax - monthly_fica + mil_nontaxable + total_extra_income
-        st.caption(f"*Estimated Taxes: Federal **\\${monthly_fed_tax:,.0f}** | FICA **\\${monthly_fica:,.0f}** — BAH/BAS excluded from tax. Your actual deductions will differ.*")
+        st.caption(f"*Estimated Taxes: Federal **\\${monthly_fed_tax:,.0f}** | FICA **\\${monthly_fica:,.0f}** — {housing_label}/BAS excluded from tax. Your actual deductions will differ.*")
         with st.expander("📋 Tax Estimate Assumptions"):
-            st.markdown("""
+            st.markdown(f"""
 - **Filing status:** Single (most conservative — married filing jointly would lower your tax bill)
 - **Standard deduction:** $15,000 (2025)
 - **Federal brackets applied:** 10% · 12% · 22% · 24% on taxable income above each threshold
-- **BAH and BAS are excluded from taxable income** per federal law — only base pay and special pays are taxed
+- **{housing_label} and BAS are excluded from taxable income** per federal law — only base pay and special pays are taxed
 - **FICA:** Flat 7.65% on taxable monthly income (6.2% Social Security + 1.45% Medicare)
 - **State taxes not modeled** — several states exempt military pay entirely; your actual state liability will vary
 - These are rough estimates. Your LES deductions tab gives you exact numbers.
@@ -3085,6 +3338,7 @@ with tab6:
         bah_amt       = st.session_state.get("bah_amt", 0.0)
         bas_amt       = st.session_state.get("bas_amt", 0.0)
         special_pay   = st.session_state.get("special_pay", 0.0)
+        housing_label = st.session_state.get("housing_label", "BAH")
         gross_monthly = base_pay + bah_amt + bas_amt + special_pay
 
         savings_rate  = st.session_state.get("savings_rate_pct", 0.0)
@@ -3111,7 +3365,7 @@ with tab6:
             st.markdown("**Income**")
             st.metric("Monthly Gross",  f"${gross_monthly:,.0f}")
             st.metric("Base Pay",       f"${base_pay:,.0f}")
-            st.metric("BAH",            f"${bah_amt:,.0f}")
+            st.metric(housing_label,    f"${bah_amt:,.0f}")
             st.metric("BAS",            f"${bas_amt:,.0f}")
         with col_b:
             st.markdown("**Retirement**")
@@ -3188,7 +3442,7 @@ with tab6:
             section_header("INCOME SNAPSHOT")
             row("Monthly Gross Pay:", f"${gross_monthly:,.0f}")
             row("Base Pay:", f"${base_pay:,.0f}")
-            row("BAH (Tax-Free):", f"${bah_amt:,.0f}")
+            row(f"{housing_label} (Tax-Free):", f"${bah_amt:,.0f}")
             row("BAS (Tax-Free):", f"${bas_amt:,.0f}")
             row("Special Pays:", f"${special_pay:,.0f}")
             pdf.ln(3)
@@ -3799,4 +4053,3 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
-
