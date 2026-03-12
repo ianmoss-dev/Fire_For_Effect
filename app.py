@@ -54,7 +54,7 @@ def get_gsheet():
         client = gspread.authorize(creds)
         sheet = client.open_by_key(SHEET_ID).sheet1
         if sheet.row_count == 0 or sheet.cell(1, 1).value != "timestamp":
-            sheet.append_row(["timestamp", "anon_id", "device_type", "event_type", "detail"])
+            sheet.append_row(["timestamp", "anon_id", "device_type", "event_type", "detail", "zip_code"])
         return sheet
     except Exception:
         return None
@@ -87,7 +87,8 @@ def log_event(event_type, detail=""):
             st.session_state.anon_id,
             st.session_state.device_type,
             event_type,
-            str(detail)
+            str(detail),
+            st.session_state.get("tab1_zip", "")
         ])
     except Exception:
         pass
@@ -132,6 +133,8 @@ if "budget_mode_logged" not in st.session_state: st.session_state.budget_mode_lo
 if "monte_carlo_logged" not in st.session_state: st.session_state.monte_carlo_logged = False
 if "fund_comparison_logged" not in st.session_state: st.session_state.fund_comparison_logged = False
 if "pdf_logged" not in st.session_state: st.session_state.pdf_logged = False
+if "tab1_zip" not in st.session_state: st.session_state.tab1_zip = ""
+if "zip_logged" not in st.session_state: st.session_state.zip_logged = False
 
 # ── Consent / Analytics Gate ─────────────────────────────────────────────────
 # App does not render until user accepts. consent_given persists in session_state
@@ -152,9 +155,9 @@ So we're trying to build one.
 
 The app asks for things like your rank, duty station ZIP code, and a few budget numbers so it can generate realistic estimates. None of that information leaves your device. There's no account, no database, and no way for us to connect anything back to you.
 
-With your permission, we do collect a small amount of anonymous usage data — things like which sections people open, whether the simulations run, whether the PDF downloads, and whether anything breaks.
+With your permission, we do collect a small amount of anonymous usage data — things like which sections people open, whether the simulations run, whether the PDF downloads, and whether anything breaks. We also log your **duty station ZIP code** (not your home address) to understand where the app is being used and whether it's actually reaching the right people.
 
-No names. No financial data. No personal information.
+No names. No financial data. No personal information beyond ZIP code.
 
 It simply helps us answer one question: is this tool actually useful — or do people close it after 15 seconds?
     """)
@@ -694,6 +697,12 @@ with tab1:
     st.session_state.special_pay = special_pay
     st.session_state.tab1_rank   = rank
     st.session_state.tab1_tis    = tis
+    st.session_state.tab1_zip    = zip_code
+
+    # Log zip once per session when it's a non-empty value
+    if zip_code and not st.session_state.zip_logged:
+        log_event("zip_entered", detail=zip_found)
+        st.session_state.zip_logged = True
 
     gross = base + bas + bah + special_pay
     annual_gross = gross * 12
@@ -3786,4 +3795,3 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
-
