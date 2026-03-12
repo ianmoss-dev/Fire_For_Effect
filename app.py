@@ -77,21 +77,29 @@ def get_device_type():
         return "unknown"
 
 def log_event(event_type, detail=""):
-    """Fire-and-forget event logger. Each meaningful action writes one row."""
-    try:
-        sheet = get_gsheet()
-        if sheet is None:
-            return
-        sheet.append_row([
-            datetime.datetime.now().isoformat(),
-            st.session_state.anon_id,
-            st.session_state.device_type,
-            event_type,
-            str(detail),
-            st.session_state.get("tab1_zip", "")
-        ])
-    except Exception:
-        pass
+    """Fire-and-forget event logger. Runs in background thread so it never blocks the UI."""
+    anon_id     = st.session_state.get("anon_id", "unknown")
+    device_type = st.session_state.get("device_type", "unknown")
+    zip_code    = st.session_state.get("tab1_zip", "")
+
+    def _write():
+        try:
+            sheet = get_gsheet()
+            if sheet is None:
+                return
+            sheet.append_row([
+                datetime.datetime.now().isoformat(),
+                anon_id,
+                device_type,
+                event_type,
+                str(detail),
+                zip_code,
+            ])
+        except Exception:
+            pass
+
+    import threading
+    threading.Thread(target=_write, daemon=True).start()
 
 # ── Session State Initialization ─────────────────────────────────────────────
 # All keys initialized here with defaults. Streamlit reruns the entire script on
@@ -1739,6 +1747,7 @@ consistency, and discipline.
                                facecolor='#14141f', edgecolor='#00b4d8',
                                labelcolor='#fafafa', framealpha=0.85)
             st.pyplot(fig)
+            plt.close(fig)   # ← prevent matplotlib memory leak under concurrent traffic
 
             st.caption(
                 f"**A note on probability of success:** A result of 50–60% is intentional and appropriate. "
