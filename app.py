@@ -2886,7 +2886,6 @@ with tab5:
         st.progress(steps_completed / total_steps)
 
     if steps_completed == total_steps:
-        st.balloons()
         st.success("You've worked the whole list. The hard part is behind you — now you just let it run.")
 
     st.divider()
@@ -3433,7 +3432,7 @@ with tab8:
     st.divider()
 
     # ── SECTION 3: ADJUSTABLE ASSUMPTIONS ─────────────────────────────────────
-    with st.expander("⚙️ Adjust Assumptions (click to customize — defaults are conservative baselines)"):
+    with st.expander("Adjust Assumptions (click to customize — defaults attempt to be conservative baselines)"):
         col_a1, col_a2, col_a3 = st.columns(3)
         with col_a1:
             rvb_appreciation  = st.slider("Annual Home Appreciation (%)", 0.0, 8.0, 3.0, 0.25, key="rvb_appr") / 100
@@ -3787,3 +3786,4 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
+
