@@ -603,11 +603,17 @@ def get_blended_nominal_return(alloc_dict, years_to_retire):
 
 def solve_savings_rate(target_nest_egg, current_tsp, base_pay_schedule,
                        civilian_monthly, mil_months, total_months,
-                       alloc_dict, inflation_rate):
+                       alloc_dict, inflation_rate,
+                       prebuilt_income_schedule=None):
     """
     Binary-searches for the constant % of income that grows to target_nest_egg.
     Uses a month-by-month gliding L-fund allocation — identical logic to the MC —
     so the solver rate and MC median are always calibrated to the same return path.
+
+    If prebuilt_income_schedule is provided (for dual-military combined schedules),
+    it is used directly. Otherwise the schedule is built from base_pay_schedule +
+    civilian_monthly as usual.
+
     Returns (savings_pct_float, contribution_schedule_list).
     """
     monthly_infl = (1 + inflation_rate) ** (1/12) - 1
@@ -628,10 +634,13 @@ def solve_savings_rate(target_nest_egg, current_tsp, base_pay_schedule,
         real = (1 + nom) ** (1/12) / (1 + monthly_infl) - 1
         monthly_rates.append(real)
 
-    # Build full income schedule (military phase + civilian phase)
-    income_schedule = list(base_pay_schedule)
-    for m in range(total_months - mil_months):
-        income_schedule.append(civilian_monthly)
+    # Use prebuilt schedule if provided (dual-military), otherwise build standard schedule
+    if prebuilt_income_schedule is not None:
+        income_schedule = prebuilt_income_schedule
+    else:
+        income_schedule = list(base_pay_schedule)
+        for m in range(total_months - mil_months):
+            income_schedule.append(civilian_monthly)
 
     def simulate(pct):
         balance = current_tsp
@@ -1278,7 +1287,13 @@ with tab2:
         st.session_state.tabs_logged.add(2)
         log_event("tab_visited", 2)
     st.header("Retirement & Pension Target")
-    
+    st.info(
+        "💡 **Why doesn't every financial app do this?** Because calculating a single savings rate that actually works "
+        "requires assumptions — about promotion timelines, fund returns, inflation, and your post-military income. "
+        "Most tools skip it because the assumptions make them uncomfortable. This one doesn't. "
+        "Every assumption baked into this model is documented in the **📋 Model Assumptions** expander at the bottom of this tab. "
+        "They are all intentionally conservative — the goal is to make sure you *hit* your targets, not just feel good about the math."
+    )
 
     # ── Dual military sync ────────────────────────────────────────────────────
     tab2_dual = st.checkbox(
@@ -1290,8 +1305,8 @@ with tab2:
 
     # ── Row 1: Career inputs ──────────────────────────────────────────────────
     def render_career_col(prefix, rank_default_idx, retire_rank_default_idx, label):
-        """Render one member's career timeline inputs. Returns (retire_system, multiplier, start_rank,
-        start_tis, retire_rank, yrs_at_retire, current_age, age_at_retire, no_mil_retirement, sex)."""
+        """Render one member's career inputs. Returns 11-tuple:
+        (ret_sys, mult, s_rank, s_tis, r_rank, yrs, no_mil, age, age_ret, sex, civ)."""
         st.markdown(f"**{label}**")
         ret_sys = st.radio("Retirement System", ["BRS (2.0%)", "Legacy / High-3 (2.5%)"],
                            horizontal=True, key=f"{prefix}_retire_sys")
@@ -1305,18 +1320,26 @@ with tab2:
         no_mil = st.checkbox("Won't retire from the military (no pension)", value=False,
                              key=f"{prefix}_no_mil",
                              help="Sets pension to $0 for this member.")
-        return ret_sys, mult, s_rank, s_tis, r_rank, yrs, no_mil
+        age     = st.slider("Current Age", 18, 60, 27, key=f"{prefix}_age")
+        age_ret = st.slider("Age When Done Working Entirely", 38, 75, 60, key=f"{prefix}_age_ret")
+        sex     = st.radio("Sex (actuarial)", ["Male", "Female"], horizontal=True, key=f"{prefix}_sex",
+                           help="Used only for actuarial pension value calculation.")
+        civ     = st.number_input("Expected Monthly Civilian Salary After Service ($)",
+                                  min_value=0.0, value=0.0, step=100.0, key=f"{prefix}_civ")
+        return ret_sys, mult, s_rank, s_tis, r_rank, yrs, no_mil, age, age_ret, sex, civ
 
     if tab2_dual:
         col_m1, col_m2 = st.columns(2)
         with col_m1:
             (ret_sys, multiplier, start_rank, start_tis,
-             retire_rank, yrs_at_retire, no_mil_retirement) = render_career_col(
+             retire_rank, yrs_at_retire, no_mil_retirement,
+             current_age, age_at_retire, sex_for_apv, civilian_monthly) = render_career_col(
                 "m1", CONFIG["ranks"].index("O-1") if "O-1" in CONFIG["ranks"] else 0, 20, "👤 Member 1 (You)"
             )
         with col_m2:
             (s_ret_sys, s_multiplier, s_start_rank, s_start_tis,
-             s_retire_rank, s_yrs_at_retire, s_no_mil_retirement) = render_career_col(
+             s_retire_rank, s_yrs_at_retire, s_no_mil_retirement,
+             s_current_age, s_age_at_retire, s_sex_for_apv, s_civilian_monthly) = render_career_col(
                 "m2_t2", CONFIG["ranks"].index("O-1") if "O-1" in CONFIG["ranks"] else 0, 18, "👤 Member 2 (Spouse)"
             )
     else:
@@ -1338,42 +1361,60 @@ with tab2:
 
     # Shared timing inputs — always single set (household age)
     st.divider()
-    timing_col, goal_col = st.columns(2)
-    with timing_col:
-        st.subheader("⏱️ Career Timeline")
-        current_age   = st.slider("Your Current Age", 18, 60, 27)
-        age_at_retire = st.slider("Age When You Stop Working Entirely", 38, 75, 60)
 
-        # Cross-community warning for Member 1
+    if not tab2_dual:
+        timing_col, goal_col = st.columns(2)
+        with timing_col:
+            st.subheader("⏱️ Career Timeline")
+            current_age   = st.slider("Your Current Age", 18, 60, 27)
+            age_at_retire = st.slider("Age When You Stop Working Entirely", 38, 75, 60)
+
+            # Cross-community warning for Member 1
+            def rank_community(r):
+                if r.startswith('O'): return 'officer'
+                if r.startswith('W'): return 'warrant'
+                return 'enlisted'
+
+            start_com  = rank_community(start_rank)
+            retire_com = rank_community(retire_rank)
+            if start_com != retire_com:
+                st.warning(
+                    f"⚠️ **Cross-community transition** ({start_rank} → {retire_rank}). "
+                    f"Savings rate uses your current promotion timeline ({start_com}). "
+                    f"Actual rate needed is likely lower. Consider two separate scenarios."
+                )
+
+        with goal_col:
+            st.subheader("🎯 Assets & Goals")
+            current_tsp  = st.number_input("Current TSP / IRA Balance ($)", value=10000, step=1000)
+            monthly_goal = st.number_input("Desired Monthly Income in Retirement ($)", value=8000, step=500)
+            sex_for_apv  = st.radio("Your Sex (actuarial life expectancy only)", ["Male", "Female"],
+                                    horizontal=True, help="Used only for the actuarial pension value calculation.")
+            civilian_monthly = st.number_input("Expected Monthly Civilian Salary ($)", min_value=0.0,
+                                               value=0.0, step=100.0)
+    else:
+        # Dual: age, age_at_retire, sex, and civilian salary already captured inside render_career_col above.
+        # Only shared inputs are TSP balance and household income goal.
         def rank_community(r):
             if r.startswith('O'): return 'officer'
             if r.startswith('W'): return 'warrant'
             return 'enlisted'
 
-        start_com  = rank_community(start_rank)
-        retire_com = rank_community(retire_rank)
-        if start_com != retire_com:
-            st.warning(
-                f"⚠️ **Cross-community transition** ({start_rank} → {retire_rank}). "
-                f"Savings rate uses your current promotion timeline ({start_com}). "
-                f"Actual rate needed is likely lower. Consider two separate scenarios."
+        tsp_goal_col1, tsp_goal_col2, tsp_goal_col3 = st.columns(3)
+        with tsp_goal_col1:
+            m1_tsp = st.number_input("Member 1 TSP / IRA Balance ($)", value=10000, step=1000,
+                                     key="m1_tsp_bal",
+                                     help="Your personal TSP/IRA balance today.")
+        with tsp_goal_col2:
+            m2_tsp = st.number_input("Member 2 TSP / IRA Balance ($)", value=0, step=1000,
+                                     key="m2_tsp_bal",
+                                     help="Spouse's personal TSP/IRA balance today.")
+        with tsp_goal_col3:
+            monthly_goal = st.number_input(
+                "Desired Monthly Household Income in Retirement ($)", value=8000, step=500,
+                help="Combined household target. Both pensions are subtracted from this before calculating how much TSP you need."
             )
-
-    with goal_col:
-        st.subheader("🎯 Assets & Goals")
-        current_tsp  = st.number_input("Current TSP / IRA Balance ($)", value=10000, step=1000)
-        monthly_goal = st.number_input(
-            "Desired Monthly Household Income in Retirement ($)" if tab2_dual else "Desired Monthly Income in Retirement ($)",
-            value=8000, step=500,
-            help="Combined household target. Both pensions are subtracted from this before calculating how much TSP you need." if tab2_dual else ""
-        )
-        sex_for_apv = st.radio("Your Sex (actuarial life expectancy only)", ["Male", "Female"],
-                               horizontal=True,
-                               help="Used only for the actuarial pension value calculation.")
-        if tab2_dual:
-            s_sex_for_apv = st.radio("Spouse Sex (actuarial)", ["Male", "Female"],
-                                     horizontal=True, key="s_sex_apv",
-                                     help="Used for spouse actuarial pension value.")
+        current_tsp = m1_tsp + m2_tsp  # solver uses combined balance as starting pot
 
     # ── Pension calculations ──────────────────────────────────────────────────
     st.divider()
@@ -1405,7 +1446,7 @@ with tab2:
         else:
             apv_value = 0.0
 
-        s_retire_at_age = current_age + max(0, s_yrs_at_retire - s_start_tis)
+        s_retire_at_age = s_current_age + max(0, s_yrs_at_retire - s_start_tis)
         if not s_no_mil_retirement and s_annual_pension > 0:
             s_apv_value = calc_pension_apv(s_annual_pension, int(s_retire_at_age),
                                            discount_rate=0.025, sex=s_sex_for_apv.lower())
@@ -1476,17 +1517,40 @@ with tab2:
         combined_pension = est_pension  # single-member alias used in solver below
 
     st.subheader("Post-Military Civilian Salary")
-    civilian_monthly = st.number_input("Expected Monthly Civilian Salary ($)", min_value=0.0,
-                                       value=0.0, step=100.0)
-    total_monthly_civ = civilian_monthly + combined_pension
-    c1, c2 = st.columns(2)
-    c1.metric("Civilian + Pension(s) / Month", f"${total_monthly_civ:,.0f}")
-    c2.metric("Civilian + Pension(s) / Year",  f"${total_monthly_civ * 12:,.0f}")
+    if tab2_dual:
+        civ_col1, civ_col2, civ_col3 = st.columns(3)
+        with civ_col1:
+            st.markdown("**Member 1**")
+            st.metric("Civilian + Pension / Month", f"${civilian_monthly + est_pension:,.0f}")
+            st.metric("Civilian + Pension / Year",  f"${(civilian_monthly + est_pension) * 12:,.0f}")
+        with civ_col2:
+            st.markdown("**Member 2 (Spouse)**")
+            st.metric("Civilian + Pension / Month", f"${s_civilian_monthly + s_est_pension:,.0f}")
+            st.metric("Civilian + Pension / Year",  f"${(s_civilian_monthly + s_est_pension) * 12:,.0f}")
+        with civ_col3:
+            st.markdown("**Combined Household**")
+            hh_civ_total = civilian_monthly + s_civilian_monthly + combined_pension
+            st.metric("Total / Month", f"${hh_civ_total:,.0f}")
+            st.metric("Total / Year",  f"${hh_civ_total * 12:,.0f}")
+    else:
+        total_monthly_civ = civilian_monthly + combined_pension
+        c1, c2 = st.columns(2)
+        c1.metric("Civilian + Pension(s) / Month", f"${total_monthly_civ:,.0f}")
+        c2.metric("Civilian + Pension(s) / Year",  f"${total_monthly_civ * 12:,.0f}")
 
-    mil_years    = max(0, yrs_at_retire - start_tis)
-    mil_months   = int(mil_years * 12)
-    years_to_grow = age_at_retire - current_age
-    total_months  = max(1, years_to_grow * 12)
+    # ── Timeline variables ────────────────────────────────────────────────────
+    mil_years     = max(0, yrs_at_retire - start_tis)
+    mil_months    = int(mil_years * 12)
+    m1_total_months = max(1, int((age_at_retire - current_age) * 12))
+
+    if tab2_dual:
+        m2_mil_months   = int(max(0, s_yrs_at_retire - s_start_tis) * 12)
+        m2_total_months = max(1, int((s_age_at_retire - s_current_age) * 12))
+        total_months    = max(m1_total_months, m2_total_months)
+        years_to_grow   = total_months / 12
+    else:
+        total_months  = m1_total_months
+        years_to_grow = age_at_retire - current_age
 
     # ── Row 2: Fund allocation ────────────────────────────────────────────────
     st.divider()
@@ -1786,90 +1850,183 @@ Fidelity reportedly found their highest-performing accounts belonged to people w
         monthly_income_gap    = max(0, monthly_goal - combined_pension)
         total_nest_egg_needed = (monthly_income_gap * 12) / 0.04
 
-        # Build projected base pay schedule for military phase
+        # Build projected base pay schedule for Member 1 military phase
         base_pay_schedule = build_monthly_base_pay_schedule(start_rank, start_tis, min(mil_months, total_months))
+        avg_m1_mil = np.mean(base_pay_schedule) if len(base_pay_schedule) > 0 else get_base_pay(start_rank, start_tis)
 
-        # Binary search solver: returns (savings_pct, monthly_contrib_schedule)
-        # savings_pct = % of base pay to save each month during military phase
-        # contrib_schedule = list of dollar amounts per month (military + civilian phases)
-        savings_pct, contrib_schedule = solve_savings_rate(
-            total_nest_egg_needed, current_tsp,
-            base_pay_schedule, civilian_monthly,
-            mil_months, total_months,
-            alloc_dict, inflation_rate
-        )
+        if tab2_dual:
+            # ── Dual: build combined monthly income schedule ──────────────────
+            # Each entry = M1_income[t] + M2_income[t], zeroed after each member's stop month
+            m2_base_schedule = build_monthly_base_pay_schedule(s_start_rank, s_start_tis, min(m2_mil_months, total_months))
+            avg_m2_mil = np.mean(m2_base_schedule) if len(m2_base_schedule) > 0 else get_base_pay(s_start_rank, s_start_tis)
 
-        st.session_state.pmt_target = savings_pct * get_base_pay(start_rank, start_tis)
-        st.session_state.savings_rate_pct = savings_pct
-        st.session_state.nest_egg_target = total_nest_egg_needed
-        st.session_state.est_pension = combined_pension  # combined for Tab 6 display
+            combined_income_schedule = []
+            for t in range(total_months):
+                # M1 contribution at month t
+                if t < m1_total_months:
+                    m1_inc = base_pay_schedule[t] if t < len(base_pay_schedule) else civilian_monthly
+                else:
+                    m1_inc = 0.0
+                # M2 contribution at month t
+                if t < m2_total_months:
+                    m2_inc = m2_base_schedule[t] if t < len(m2_base_schedule) else s_civilian_monthly
+                else:
+                    m2_inc = 0.0
+                combined_income_schedule.append(m1_inc + m2_inc)
+
+            savings_pct, contrib_schedule = solve_savings_rate(
+                total_nest_egg_needed, current_tsp,
+                None, None, None, total_months,
+                alloc_dict, inflation_rate,
+                prebuilt_income_schedule=combined_income_schedule
+            )
+        else:
+            savings_pct, contrib_schedule = solve_savings_rate(
+                total_nest_egg_needed, current_tsp,
+                base_pay_schedule, civilian_monthly,
+                mil_months, total_months,
+                alloc_dict, inflation_rate
+            )
+
+        # ── 5% floor: if solver says < 5%, recommend 5% for the BRS match ────
+        true_pct    = savings_pct
+        already_on_track = true_pct < 0.05
+        display_pct = max(true_pct, 0.05)
+
+        st.session_state.pmt_target      = display_pct * get_base_pay(start_rank, start_tis)
+        st.session_state.savings_rate_pct = display_pct
+        st.session_state.nest_egg_target  = total_nest_egg_needed
+        st.session_state.est_pension      = combined_pension
 
         current_base = get_base_pay(start_rank, start_tis)
-        # Back-calculate civilian savings rate from blended rate
-        avg_mil_income = np.mean(base_pay_schedule) if len(base_pay_schedule) > 0 else current_base
-        if civilian_monthly > 0:
-            civ_pct = savings_pct * (avg_mil_income / civilian_monthly)
-        else:
-            civ_pct = None
 
-        monthly_dollar_equiv = savings_pct * current_base
+        # ── Civilian % back-calc ──────────────────────────────────────────────
+        if tab2_dual:
+            civ_pct   = (true_pct * avg_m1_mil / civilian_monthly)   if civilian_monthly   > 0 else None
+            s_civ_pct = (true_pct * avg_m2_mil / s_civilian_monthly) if s_civilian_monthly > 0 else None
+            # Identify who retires earlier for the stagger note
+            m1_stops_first = m1_total_months < m2_total_months
+            later_member   = "Member 2 (Spouse)" if m1_stops_first else "Member 1 (You)"
+            earlier_member = "Member 1 (You)"    if m1_stops_first else "Member 2 (Spouse)"
+            stagger_yrs    = abs(m1_total_months - m2_total_months) / 12
+        else:
+            if civilian_monthly > 0:
+                civ_pct = true_pct * (avg_m1_mil / civilian_monthly)
+            else:
+                civ_pct = None
+
+        monthly_dollar_equiv = display_pct * current_base
 
         st.divider()
         r1, r2, r3 = st.columns(3)
-        r1.metric("Target Nest Egg (Real $)",    f"${total_nest_egg_needed:,.0f}")
-        r2.metric("Blended Nominal Return",       f"{expected_nom * 100:.2f}%")
+        r1.metric("Target Nest Egg (Real $)",     f"${total_nest_egg_needed:,.0f}")
+        r2.metric("Blended Nominal Return",        f"{expected_nom * 100:.2f}%")
         r3.metric("Real Return (After Inflation)", f"{expected_real_rate * 100:.2f}%")
 
+        # ── On-track callout (shown when 5% floor kicks in) ──────────────────
+        if already_on_track:
+            st.success(
+                f"✅ **You're already on track to meet your retirement goal.** "
+                f"Based on your desired monthly spend of **\\${monthly_goal:,.0f}/month**, "
+                f"your current{'combined ' if tab2_dual else ' '}TSP/IRA balance of **\\${current_tsp:,.0f}**, "
+                f"your expected retirement age of **{age_at_retire}**, "
+                f"your pension{'s' if tab2_dual else ''} totaling **\\${combined_pension:,.0f}/month**, "
+                f"and a blended real return of **{expected_real_rate * 100:.1f}%** — "
+                f"you are projected to hit your nest egg target of **\\${total_nest_egg_needed:,.0f}** "
+                f"with a savings rate of just **{true_pct * 100:.1f}%**. "
+                f"The rate below is set to **5%** automatically to capture the full BRS match — "
+                f"free money you should not leave on the table."
+            )
+
         st.divider()
-        m1, m2, m3 = st.columns(3)
-        m1.metric(
+        m1_col, m2_col, m3_col = st.columns(3)
+        m1_col.metric(
             "📌 Military Savings Rate",
-            f"{savings_pct * 100:.1f}% of Base Pay",
-            delta="This percentage is adjusted in MyPay",
-            delta_color="off"
-        )
-        if civ_pct is not None:
-            m2.metric(
-                "📌 Civilian Savings Rate",
-                f"{civ_pct * 100:.1f}% of Civilian Salary",
-                delta="Set this up in your 401k or IRA after separation",
-                delta_color="off"
-            )
-        else:
-            m2.metric(
-                "📌 Civilian Savings Rate",
-                "Enter civilian salary above",
-                delta="Required to calculate post-military rate",
-                delta_color="off"
-            )
-        m3.metric(
-            "Today's Military Dollar Equivalent",
-            f"${monthly_dollar_equiv:,.2f} / month",
-            delta="Starting point only — see note below",
+            f"{display_pct * 100:.1f}% of Base Pay",
+            delta="Both members set this % in their own MyPay" if tab2_dual else "Set this in MyPay",
             delta_color="off"
         )
 
         if tab2_dual:
-            st.info(
-                f"💑 **Dual military note:** This savings rate is for **your TSP only** (Member 1). "
-                f"Your spouse should run the same calculation independently — their savings rate will differ "
-                f"based on their rank, TIS, and retirement timeline. "
-                f"Combined, both pensions (\\${combined_pension:,.0f}/mo) already cover a significant portion "
-                f"of your \\${monthly_goal:,.0f}/mo household goal. "
-                f"Your TSP only needs to close the \\${monthly_income_gap:,.0f}/mo gap."
+            s_current_base = get_base_pay(s_start_rank, s_start_tis)
+            m1_dollars     = display_pct * current_base
+            m2_dollars     = display_pct * s_current_base
+            m2_col.metric(
+                "👤 Member 1 Monthly Contribution",
+                f"${m1_dollars:,.2f} / month",
+                delta=f"{display_pct * 100:.1f}% × ${current_base:,.0f} base pay",
+                delta_color="off"
+            )
+            m3_col.metric(
+                "👤 Member 2 Monthly Contribution",
+                f"${m2_dollars:,.2f} / month",
+                delta=f"{display_pct * 100:.1f}% × ${s_current_base:,.0f} base pay",
+                delta_color="off"
+            )
+
+            # Staggered retirement civilian % note
+            civ_lines = []
+            if civ_pct is not None:
+                civ_lines.append(f"Member 1: **{civ_pct * 100:.1f}%** of \\${civilian_monthly:,.0f}/mo civilian salary")
+            if s_civ_pct is not None:
+                civ_lines.append(f"Member 2: **{s_civ_pct * 100:.1f}%** of \\${s_civilian_monthly:,.0f}/mo civilian salary")
+
+            if stagger_yrs > 0.5:
+                stagger_note = (
+                    f"\n\n⏱️ **Staggered retirement:** {earlier_member} stops working {stagger_yrs:.0f} years earlier. "
+                    f"After that, {later_member} carries all civilian contributions solo until their stop date."
+                )
+            else:
+                stagger_note = ""
+
+            if civ_lines:
+                st.info(
+                    f"💑 **Dual military:** Both members set **{display_pct * 100:.1f}%** in their own MyPay — "
+                    f"combined **\\${m1_dollars + m2_dollars:,.0f}/month** toward your shared nest egg.\n\n"
+                    f"**Post-military civilian savings rates** (set in 401k/IRA after separation):\n"
+                    + "\n".join(f"  - {l}" for l in civ_lines)
+                    + stagger_note
+                )
+            else:
+                st.info(
+                    f"💑 **Dual military:** Both members set **{display_pct * 100:.1f}%** in their own MyPay — "
+                    f"combined **\\${m1_dollars + m2_dollars:,.0f}/month** toward your shared nest egg."
+                    + stagger_note
+                )
+        else:
+            if civ_pct is not None:
+                m2_col.metric(
+                    "📌 Civilian Savings Rate",
+                    f"{civ_pct * 100:.1f}% of Civilian Salary",
+                    delta="Set this up in your 401k or IRA after separation",
+                    delta_color="off"
+                )
+            else:
+                m2_col.metric(
+                    "📌 Civilian Savings Rate",
+                    "Enter civilian salary above",
+                    delta="Required to calculate post-military rate",
+                    delta_color="off"
+                )
+            m3_col.metric(
+                "Today's Military Dollar Equivalent",
+                f"${monthly_dollar_equiv:,.2f} / month",
+                delta="Starting point only — see note below",
+                delta_color="off"
             )
 
         # ── TSP Gap Callout ───────────────────────────────────────────────────
+        monthly_dollar_equiv = display_pct * current_base  # always defined for gap callout
         les_tsp = st.session_state.get("les_tsp_actual", 0.0)
         if les_tsp > 0 and current_base > 0:
             current_tsp_pct = (les_tsp / current_base) * 100
-            gap_pct = savings_pct * 100 - current_tsp_pct
+            gap_pct = display_pct * 100 - current_tsp_pct
             gap_dollars = monthly_dollar_equiv - les_tsp
             if gap_pct > 0.5:
                 st.warning(
                     f"**You are currently saving {current_tsp_pct:.1f}% of your base pay (\\${les_tsp:,.2f}/month) toward TSP.** "
                     f"To meet your financial goals, you need to increase your contributions to "
-                    f"**{savings_pct * 100:.1f}%** — an increase of **{gap_pct:.1f} percentage points "
+                    f"**{display_pct * 100:.1f}%** — an increase of **{gap_pct:.1f} percentage points "
                     f"(\\${gap_dollars:,.2f}/month)**. You can make this adjustment now in "
                     f"[MyPay](https://mypay.dfas.mil)."
                 )
@@ -1893,7 +2050,7 @@ Fidelity reportedly found their highest-performing accounts belonged to people w
         civ_rate_line = (
             f"After separation, target **{civ_pct * 100:.1f}% of your civilian salary** — "
             f"set this up in your employer's 401k or IRA. These two rates work together to get you to your goal."
-            if civ_pct is not None
+            if (not tab2_dual and civ_pct is not None)
             else "Enter your expected civilian salary above to calculate your post-military savings rate."
         )
 
@@ -4292,4 +4449,3 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
-
