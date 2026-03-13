@@ -1278,13 +1278,7 @@ with tab2:
         st.session_state.tabs_logged.add(2)
         log_event("tab_visited", 2)
     st.header("Retirement & Pension Target")
-    st.info(
-        "💡 **Why doesn't every financial app do this?** Because calculating a single savings rate that actually works "
-        "requires assumptions — about promotion timelines, fund returns, inflation, and your post-military income. "
-        "Most tools skip it because the assumptions make them uncomfortable. This one doesn't. "
-        "Every assumption baked into this model is documented in the **📋 Model Assumptions** expander at the bottom of this tab. "
-        "They are all intentionally conservative — the goal is to make sure you *hit* your targets, not just feel good about the math."
-    )
+    
 
     # ── Dual military sync ────────────────────────────────────────────────────
     tab2_dual = st.checkbox(
@@ -4298,3 +4292,4 @@ st.markdown("""
 <b>Disclaimer:</b> This tool is for educational purposes only. I am not a financial advisor — but financial literacy isn't reserved for people with CFP after their name. Purposeful scrolling through r/personalfinance and r/MilitaryFinance, clicking some links, and reading for a weekend will get you further than you can possibly imagine. Where applicable, model assumptions are documented in the expandable sections throughout the app. Take charge of your money and own your future — the return on investment is 100%. Oh, and I'll take a smash burger with sautéed jalapeños and a cup that's 90% seltzer water with a splash of Coke.
 </div>
 """, unsafe_allow_html=True)
+
