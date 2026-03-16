@@ -123,8 +123,8 @@ These additions would further improve the realism and usefulness of the tool.
 
 ## Team Contributions
 
-**Brandon** developed the **Sankey budget visualization** and served as the liaison between the Fortress financial tool and the FIRE for Effect application.
+**Brandon** developed the Sankey budget visualization and served as the liaison between the Fortress financial tool and the FIRE for Effect application.
 
-**Shaun** built the **Monte Carlo simulation engine** and worked on integrating TSP data and generating proxy investment return data.
+**Shaun** built the Monte Carlo simulation engine and worked on integrating TSP data and generating proxy investment return data.
 
-**Ian** developed the **savings rate solver** and built the **Streamlit application**, integrating the different components into a single interactive platform.
+**Ian** developed the savings rate solver and built out the Streamlit application, integrating the different components into a single interactive platform.
