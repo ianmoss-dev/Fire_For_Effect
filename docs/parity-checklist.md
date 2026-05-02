@@ -26,15 +26,15 @@ Status key:
 - [x] BAH lookup by ZIP/MHA
 - [x] Dependency-status handling
 - [x] BAS calculation
-- [~] OCONUS/OHA flow
+- [x] OCONUS/OHA flow
 - [x] OHA location lookup
 - [ ] COLA input
 - [ ] Special pay inputs
 - [ ] Dual-military household handling
 - [ ] Spouse service-member pay handling
-- [ ] Gross monthly compensation output
+- [x] Gross monthly compensation output
 - [ ] Monthly/annual pay breakdown
-- [ ] Taxable vs non-taxable compensation distinction
+- [x] Taxable vs non-taxable compensation distinction
 
 ## Retirement
 
