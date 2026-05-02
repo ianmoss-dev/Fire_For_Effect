@@ -22,10 +22,10 @@ Status key:
 ## Income
 
 - [ ] Rank and time-in-service input
-- [ ] Base pay lookup
-- [ ] BAH lookup by ZIP/MHA
-- [ ] Dependency-status handling
-- [ ] BAS calculation
+- [x] Base pay lookup
+- [x] BAH lookup by ZIP/MHA
+- [x] Dependency-status handling
+- [x] BAS calculation
 - [ ] OCONUS/OHA flow
 - [ ] OHA location lookup
 - [ ] COLA input
