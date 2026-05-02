@@ -109,7 +109,7 @@ Expected baseline outputs:
 
 ### Case O-001: OCONUS Germany
 
-Status: `needs legacy run`
+Status: `captured`
 
 Inputs:
 
@@ -124,7 +124,12 @@ Inputs:
 
 Expected baseline outputs:
 
-- Capture from legacy app before extracting OHA logic.
+- Base pay: `$4,110.00/mo`
+- BAS: `$515.00/mo`
+- OHA rental allowance: `$1,600.00/mo`
+- OHA utility allowance: `$440.00/mo`
+- Total OHA: `$2,040.00/mo`
+- Housing label: `OHA + Utility`
 
 ## Retirement Cases
 
@@ -197,4 +202,3 @@ Expected baseline outputs:
 - Net cost of renting
 - Buying/renting advantage
 - Break-even month, if any
-

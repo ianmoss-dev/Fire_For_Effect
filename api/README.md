@@ -8,6 +8,7 @@ Current status:
 - Base pay lookup extracted
 - BAS lookup extracted
 - BAH lookup extracted
+- OHA lookup extracted
 - First parity tests added
 
 Run tests from the repo root:
@@ -15,4 +16,3 @@ Run tests from the repo root:
 ```powershell
 python -m unittest discover -s api\tests -v
 ```
-

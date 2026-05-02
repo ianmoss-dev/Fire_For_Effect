@@ -26,8 +26,8 @@ Status key:
 - [x] BAH lookup by ZIP/MHA
 - [x] Dependency-status handling
 - [x] BAS calculation
-- [ ] OCONUS/OHA flow
-- [ ] OHA location lookup
+- [~] OCONUS/OHA flow
+- [x] OHA location lookup
 - [ ] COLA input
 - [ ] Special pay inputs
 - [ ] Dual-military household handling
