@@ -12,6 +12,7 @@ Current status:
 - Combined CONUS/OCONUS income calculation extracted
 - First FastAPI endpoint added at `POST /income/calculate`
 - Retirement savings-rate endpoint added at `POST /retirement/solve-savings-rate`
+- Monte Carlo endpoint added at `POST /retirement/monte-carlo`
 - Promotion timeline logic extracted
 - High-3 pension calculation extracted
 - TSP fund assumptions and lifecycle allocation extracted

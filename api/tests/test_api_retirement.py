@@ -51,7 +51,31 @@ class RetirementApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 422)
 
+    def test_monte_carlo_endpoint(self):
+        response = self.client.post(
+            "/retirement/monte-carlo",
+            json={
+                "current_age": 30,
+                "retire_age": 35,
+                "initial_balance": 10000,
+                "monthly_contribution": 500,
+                "l_fund_weight": 0,
+                "manual_allocation": {"C": 0.6, "S": 0.2, "I": 0.2},
+                "inflation_rate": 0.025,
+                "trials": 50,
+                "target_balance": 25000,
+                "seed": 123,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["months"], 60)
+        self.assertEqual(body["trials"], 50)
+        self.assertGreaterEqual(body["success_rate"], 0)
+        self.assertLessEqual(body["success_rate"], 1)
+        self.assertEqual(len(body["yearly_points"]), 5)
+
 
 if __name__ == "__main__":
     unittest.main()
-

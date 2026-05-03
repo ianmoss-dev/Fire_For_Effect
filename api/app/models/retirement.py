@@ -21,3 +21,33 @@ class SavingsRateResponse(BaseModel):
     final_projected_balance: float
     contribution_schedule: list[float]
 
+
+class MonteCarloRequest(BaseModel):
+    current_age: float = Field(..., ge=0)
+    retire_age: float = Field(..., gt=0)
+    initial_balance: float = Field(0.0, ge=0)
+    monthly_contribution: float | list[float] = 0.0
+    l_fund_weight: float = Field(0.0, ge=0, le=1)
+    manual_allocation: dict[str, float] = Field(default_factory=dict)
+    inflation_rate: float = Field(0.025, ge=0)
+    trials: int = Field(1000, ge=1, le=5000)
+    target_balance: float = Field(..., ge=0)
+    seed: int | None = None
+
+
+class MonteCarloYearPoint(BaseModel):
+    month: int
+    year: int
+    p10: float
+    p50: float
+    p90: float
+
+
+class MonteCarloResponse(BaseModel):
+    months: int
+    trials: int
+    success_rate: float
+    final_p10: float
+    final_p50: float
+    final_p90: float
+    yearly_points: list[MonteCarloYearPoint]

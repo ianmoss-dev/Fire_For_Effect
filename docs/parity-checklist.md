@@ -51,8 +51,8 @@ Status key:
 - [ ] TSP fund allocation input
 - [x] TSP fund assumptions
 - [ ] Fund comparison
-- [ ] Monte Carlo simulation
-- [ ] Monte Carlo success rate
+- [x] Monte Carlo simulation
+- [x] Monte Carlo success rate
 - [ ] Monte Carlo chart
 - [ ] Scenario output summary
 

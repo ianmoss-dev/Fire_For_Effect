@@ -3,9 +3,10 @@ from dataclasses import asdict
 from fastapi import FastAPI
 
 from app.domain.income import calculate_income
+from app.domain.monte_carlo import run_monte_carlo, summarize_monte_carlo
 from app.domain.retirement_solver import build_monthly_real_rates, project_balance, solve_savings_rate
 from app.models.income import IncomeCalculationRequest, IncomeCalculationResponse
-from app.models.retirement import SavingsRateRequest, SavingsRateResponse
+from app.models.retirement import MonteCarloRequest, MonteCarloResponse, SavingsRateRequest, SavingsRateResponse
 
 
 app = FastAPI(
@@ -59,3 +60,19 @@ def solve_savings_rate_endpoint(request: SavingsRateRequest):
         "final_projected_balance": final_projected_balance,
         "contribution_schedule": contribution_schedule,
     }
+
+
+@app.post("/retirement/monte-carlo", response_model=MonteCarloResponse)
+def monte_carlo_endpoint(request: MonteCarloRequest):
+    results = run_monte_carlo(
+        current_age=request.current_age,
+        retire_age=request.retire_age,
+        initial_balance=request.initial_balance,
+        monthly_contribution=request.monthly_contribution,
+        l_fund_weight=request.l_fund_weight,
+        manual_allocation=request.manual_allocation,
+        inflation_rate=request.inflation_rate,
+        trials=request.trials,
+        seed=request.seed,
+    )
+    return summarize_monte_carlo(results, request.target_balance)
