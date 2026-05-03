@@ -46,10 +46,10 @@ Status key:
 - [x] Future base-pay schedule
 - [x] High-3 pension calculation
 - [x] BRS pension calculation
-- [ ] Pension present-value calculation
-- [ ] Required savings-rate solver
+- [x] Pension present-value calculation
+- [x] Required savings-rate solver
 - [ ] TSP fund allocation input
-- [ ] TSP fund assumptions
+- [x] TSP fund assumptions
 - [ ] Fund comparison
 - [ ] Monte Carlo simulation
 - [ ] Monte Carlo success rate

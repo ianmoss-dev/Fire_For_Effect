@@ -11,8 +11,11 @@ Current status:
 - OHA lookup extracted
 - Combined CONUS/OCONUS income calculation extracted
 - First FastAPI endpoint added at `POST /income/calculate`
+- Retirement savings-rate endpoint added at `POST /retirement/solve-savings-rate`
 - Promotion timeline logic extracted
 - High-3 pension calculation extracted
+- TSP fund assumptions and lifecycle allocation extracted
+- Savings-rate solver extracted
 - First parity tests added
 
 Run tests from the repo root:
