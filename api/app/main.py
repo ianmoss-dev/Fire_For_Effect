@@ -2,9 +2,11 @@ from dataclasses import asdict
 
 from fastapi import FastAPI
 
+from app.domain.budget import BudgetCategory, IncomeStream, summarize_budget
 from app.domain.income import calculate_income
 from app.domain.monte_carlo import run_monte_carlo, summarize_monte_carlo
 from app.domain.retirement_solver import build_monthly_real_rates, project_balance, solve_savings_rate
+from app.models.budget import BudgetSummaryRequest, BudgetSummaryResponse
 from app.models.income import IncomeCalculationRequest, IncomeCalculationResponse
 from app.models.retirement import MonteCarloRequest, MonteCarloResponse, SavingsRateRequest, SavingsRateResponse
 
@@ -76,3 +78,27 @@ def monte_carlo_endpoint(request: MonteCarloRequest):
         seed=request.seed,
     )
     return summarize_monte_carlo(results, request.target_balance)
+
+
+@app.post("/budget/summary", response_model=BudgetSummaryResponse)
+def budget_summary_endpoint(request: BudgetSummaryRequest):
+    result = summarize_budget(
+        take_home_monthly=request.take_home_monthly,
+        income_streams=[
+            IncomeStream(label=stream.label, amount=stream.amount, frequency=stream.frequency)
+            for stream in request.income_streams
+        ],
+        fixed_expenses=[
+            BudgetCategory(label=category.label, amount=category.amount)
+            for category in request.fixed_expenses
+        ],
+        investments=[
+            BudgetCategory(label=category.label, amount=category.amount)
+            for category in request.investments
+        ],
+        flexible_spending=[
+            BudgetCategory(label=category.label, amount=category.amount)
+            for category in request.flexible_spending
+        ],
+    )
+    return asdict(result)

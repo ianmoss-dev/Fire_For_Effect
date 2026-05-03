@@ -22,8 +22,8 @@ Status key:
 - [x] Add savings-rate API endpoint.
 - [x] Extract Monte Carlo simulation.
 - [x] Add Monte Carlo API endpoint.
-- [ ] Extract budget/cash-flow summary.
-- [ ] Add budget API endpoint.
+- [x] Extract budget/cash-flow summary.
+- [x] Add budget API endpoint.
 - [ ] Add deployment configuration.
 
 ## Frontend
@@ -42,6 +42,6 @@ Status key:
 
 - [x] Backend tests: `39` passing before Monte Carlo extraction.
 - [x] Backend tests after Monte Carlo.
-- [ ] Backend tests after budget.
+- [x] Backend tests after budget.
 - [ ] Frontend build.
 - [ ] Frontend responsive smoke check.

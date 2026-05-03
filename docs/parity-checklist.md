@@ -61,14 +61,14 @@ Status key:
 - [ ] LES-style income entry
 - [ ] Estimated tax mode
 - [ ] Extra income streams
-- [ ] Take-home pay output
-- [ ] Fixed expenses
-- [ ] Investments
-- [ ] Flexible spending
-- [ ] Surplus calculation
-- [ ] Cash-flow visualization
-- [ ] Mobile-friendly cash-flow replacement for Sankey chart
-- [ ] Budget summary for report
+- [x] Take-home pay output
+- [x] Fixed expenses
+- [x] Investments
+- [x] Flexible spending
+- [x] Surplus calculation
+- [~] Cash-flow visualization
+- [x] Mobile-friendly cash-flow replacement for Sankey chart
+- [x] Budget summary for report
 
 ## Education and Checklist
 

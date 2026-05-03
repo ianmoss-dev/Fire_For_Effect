@@ -13,6 +13,7 @@ Current status:
 - First FastAPI endpoint added at `POST /income/calculate`
 - Retirement savings-rate endpoint added at `POST /retirement/solve-savings-rate`
 - Monte Carlo endpoint added at `POST /retirement/monte-carlo`
+- Budget summary endpoint added at `POST /budget/summary`
 - Promotion timeline logic extracted
 - High-3 pension calculation extracted
 - TSP fund assumptions and lifecycle allocation extracted
