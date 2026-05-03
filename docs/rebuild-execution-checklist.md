@@ -45,3 +45,4 @@ Status key:
 - [x] Backend tests after budget.
 - [x] Frontend build.
 - [~] Frontend responsive smoke check.
+- [x] CI workflow added for API tests and web build.
