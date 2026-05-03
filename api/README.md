@@ -19,10 +19,22 @@ Run tests from the repo root:
 python -m unittest discover -s api\tests -v
 ```
 
-Run the API locally after installing API dependencies:
+Set up local API dependencies:
 
 ```powershell
 cd api
-python -m pip install -r requirements.txt
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -r requirements-dev.txt
+```
+
+Run tests with the local API environment:
+
+```powershell
+.\.venv\Scripts\python -m unittest discover -s tests -v
+```
+
+Run the API locally:
+
+```powershell
 uvicorn app.main:app --reload
 ```
