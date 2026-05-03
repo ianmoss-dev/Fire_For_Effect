@@ -1,6 +1,8 @@
 from dataclasses import asdict
+import os
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.domain.budget import BudgetCategory, IncomeStream, summarize_budget
 from app.domain.income import calculate_income
@@ -14,6 +16,21 @@ from app.models.retirement import MonteCarloRequest, MonteCarloResponse, Savings
 app = FastAPI(
     title="FIRE for Effect API",
     version="0.1.0",
+)
+
+cors_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+    if origin.strip()
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_origin_regex=os.getenv("CORS_ORIGIN_REGEX"),
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

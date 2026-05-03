@@ -12,3 +12,5 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.5
+      - key: CORS_ORIGIN_REGEX
+        value: https://.*\.pages\.dev

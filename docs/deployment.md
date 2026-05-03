@@ -44,6 +44,12 @@ Required environment variable:
 
 - `VITE_API_BASE_URL=https://<render-service>.onrender.com`
 
+Backend CORS:
+
+- Local frontend origins are allowed by default: `http://localhost:5173` and `http://127.0.0.1:5173`.
+- `render.yaml` allows Cloudflare Pages preview domains with `CORS_ORIGIN_REGEX=https://.*\.pages\.dev`.
+- Add the final custom domain to `CORS_ORIGINS` before production cutover.
+
 Cloudflare setup path:
 
 1. Create a Pages project from the GitHub repo.
