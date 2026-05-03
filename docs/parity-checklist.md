@@ -42,10 +42,10 @@ Status key:
 - [ ] Current age input
 - [ ] Retirement age input
 - [ ] Retirement income target input
-- [ ] Promotion timeline projection
-- [ ] Future base-pay schedule
-- [ ] High-3 pension calculation
-- [ ] BRS pension calculation
+- [x] Promotion timeline projection
+- [x] Future base-pay schedule
+- [x] High-3 pension calculation
+- [x] BRS pension calculation
 - [ ] Pension present-value calculation
 - [ ] Required savings-rate solver
 - [ ] TSP fund allocation input

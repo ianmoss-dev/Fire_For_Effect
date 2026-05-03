@@ -11,6 +11,8 @@ Current status:
 - OHA lookup extracted
 - Combined CONUS/OCONUS income calculation extracted
 - First FastAPI endpoint added at `POST /income/calculate`
+- Promotion timeline logic extracted
+- High-3 pension calculation extracted
 - First parity tests added
 
 Run tests from the repo root:
