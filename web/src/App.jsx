@@ -189,6 +189,7 @@ function App() {
     } catch (error) {
       updateResults({ retirementError: error.message })
       setApiMessage(`Retirement API unavailable: ${error.message}`)
+      goNext()
     } finally {
       setIsWorking(false)
     }
