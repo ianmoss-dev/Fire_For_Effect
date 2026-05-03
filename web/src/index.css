@@ -1,0 +1,60 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=Playfair+Display:wght@700;800&display=swap');
+
+:root {
+  --navy: #1b3a6b;
+  --blue: #2e75b6;
+  --gold: #c9a84c;
+  --light-blue: #d5e8f0;
+  --light-gold: #fef9ee;
+  --gray: #595959;
+  --light-gray: #f2f2f2;
+  --white: #ffffff;
+  --green: #2e7d32;
+  --light-green: #e8f5e9;
+  --red: #c62828;
+  --light-red: #ffebee;
+  --ink: #162033;
+  --paper: #f8f9fa;
+  --border: rgba(27, 58, 107, 0.14);
+  --shadow: 0 24px 80px rgba(27, 58, 107, 0.14);
+  font-family: 'DM Sans', sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 8% 4%, rgba(201, 168, 76, 0.26), transparent 28rem),
+    radial-gradient(circle at 92% 10%, rgba(46, 117, 182, 0.2), transparent 24rem),
+    linear-gradient(145deg, #fef9ee 0%, #f8f9fa 45%, #d5e8f0 130%);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+#root {
+  min-height: 100dvh;
+}

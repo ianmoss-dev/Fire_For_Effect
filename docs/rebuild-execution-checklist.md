@@ -28,20 +28,20 @@ Status key:
 
 ## Frontend
 
-- [ ] Scaffold React/Vite app.
-- [ ] Add Napkin Math family visual tokens.
-- [ ] Add mobile-first app shell.
-- [ ] Wire income calculator screen to API.
-- [ ] Wire retirement solver screen to API.
-- [ ] Add Monte Carlo result view.
-- [ ] Add budget/cash-flow screen.
-- [ ] Add plan summary screen.
-- [ ] Run mobile and desktop build checks.
+- [x] Scaffold React/Vite app.
+- [x] Add Napkin Math family visual tokens.
+- [x] Add mobile-first app shell.
+- [x] Wire income calculator screen to API.
+- [x] Wire retirement solver screen to API.
+- [x] Add Monte Carlo result view.
+- [x] Add budget/cash-flow screen.
+- [x] Add plan summary screen.
+- [x] Run mobile and desktop build checks.
 
 ## Checks
 
 - [x] Backend tests: `39` passing before Monte Carlo extraction.
 - [x] Backend tests after Monte Carlo.
 - [x] Backend tests after budget.
-- [ ] Frontend build.
-- [ ] Frontend responsive smoke check.
+- [x] Frontend build.
+- [~] Frontend responsive smoke check.
