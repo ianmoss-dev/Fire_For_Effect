@@ -24,7 +24,7 @@ Status key:
 - [x] Add Monte Carlo API endpoint.
 - [x] Extract budget/cash-flow summary.
 - [x] Add budget API endpoint.
-- [ ] Add deployment configuration.
+- [x] Add deployment configuration.
 
 ## Frontend
 
