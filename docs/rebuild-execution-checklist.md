@@ -46,3 +46,4 @@ Status key:
 - [x] Frontend build.
 - [~] Frontend responsive smoke check.
 - [x] CI workflow added for API tests and web build.
+- [x] Launch readiness review documented.

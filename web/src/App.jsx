@@ -228,6 +228,9 @@ function App() {
         <RetirementScreen {...commonProps} calculateRetirement={calculateRetirement} />
       )}
       {screenIndex === 5 && <PlanScreen {...commonProps} calculateBudget={calculateBudget} />}
+      <footer className="app-footer">
+        FIRE for Effect is for educational planning only. It is not financial, legal, or tax advice.
+      </footer>
     </main>
   )
 }
@@ -672,6 +675,9 @@ function PlanScreen({ plan, goBack, calculateBudget, isWorking, apiMessage }) {
       )}
 
       {plan.results.retirementError && <p className="api-note error">Retirement API check failed: {plan.results.retirementError}</p>}
+      <p className="plan-disclaimer">
+        This plan is an educational estimate based on the numbers entered here. It is meant to help with decisions, not replace professional advice.
+      </p>
       {apiMessage && <p className="api-note">{apiMessage}</p>}
     </Screen>
   )
